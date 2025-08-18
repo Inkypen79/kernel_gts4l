@@ -10,14 +10,11 @@
  * GNU General Public License for more details.
  */
 
-#if !defined(_TRACER_PKT_PRIVATE_H) || defined(TRACE_HEADER_MULTI_READ)
-#define _TRACER_PKT_PRIVATE_H
-
 #undef TRACE_SYSTEM
 #define TRACE_SYSTEM tracer_pkt_private
 
-#undef TRACE_INCLUDE_FILE
-#define TRACE_INCLUDE_FILE tracer_pkt_private
+#if !defined(_TRACER_PKT_TRACE_H) || defined(TRACE_HEADER_MULTI_READ)
+#define _TRACER_PKT_TRACE_H
 
 #include <linux/tracepoint.h>
 
@@ -45,7 +42,8 @@ TRACE_EVENT(tracer_pkt_event,
 		__entry->cc1, __entry->cc2, __entry->cc3, __entry->id)
 );
 
-#undef TRACE_INCLUDE_PATH
-#define TRACE_INCLUDE_PATH ../../drivers/soc/qcom
+#endif /* _TRACER_PKT_TRACE_H */
+
+#undef TRACE_INCLUDE_FILE
+#define TRACE_INCLUDE_FILE drivers/soc/qcom/tracer_pkt_private
 #include <trace/define_trace.h>
-#endif /* _TRACER_PKT_PRIVATE_H */

@@ -72,9 +72,8 @@ TRACE_EVENT(
 	TP_printk("proto =%lu\n", __entry->proto)
 );
 
-
 #endif /* _RNDIS_IPA_TRACE_H */
 
-#undef TRACE_INCLUDE_FILE
-#define TRACE_INCLUDE_FILE rndis_ipa_trace
+#undef TRACE_INCLUDE_PATH
+#define TRACE_INCLUDE_PATH .
 #include <trace/define_trace.h>

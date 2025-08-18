@@ -12,7 +12,9 @@
 
 #undef TRACE_SYSTEM
 #define TRACE_SYSTEM ipa
-#define TRACE_INCLUDE_FILE ipa_trace
+
+#undef TRACE_INCLUDE_FILE
+#define TRACE_INCLUDE_FILE drivers/platform/msm/ipa/ipa_v2/ipa_trace  /* or ipa_v3/ipa_trace for v3 */
 
 #if !defined(_IPA_TRACE_H) || defined(TRACE_HEADER_MULTI_READ)
 #define _IPA_TRACE_H
@@ -20,7 +22,7 @@
 #include <linux/tracepoint.h>
 
 TRACE_EVENT(
-	intr_to_poll,
+	intr_to_poll3,
 
 	TP_PROTO(unsigned long client),
 
@@ -38,7 +40,7 @@ TRACE_EVENT(
 );
 
 TRACE_EVENT(
-	poll_to_intr,
+	poll_to_intr3,
 
 	TP_PROTO(unsigned long client),
 
@@ -56,7 +58,7 @@ TRACE_EVENT(
 );
 
 TRACE_EVENT(
-	idle_sleep_enter,
+	idle_sleep_enter3,
 
 	TP_PROTO(unsigned long client),
 
@@ -74,7 +76,7 @@ TRACE_EVENT(
 );
 
 TRACE_EVENT(
-	idle_sleep_exit,
+	idle_sleep_exit3,
 
 	TP_PROTO(unsigned long client),
 
@@ -92,7 +94,7 @@ TRACE_EVENT(
 );
 
 TRACE_EVENT(
-	rmnet_ipa_netifni,
+	rmnet_ipa_netifni3,
 
 	TP_PROTO(unsigned long rx_pkt_cnt),
 
@@ -110,7 +112,7 @@ TRACE_EVENT(
 );
 
 TRACE_EVENT(
-	rmnet_ipa_netifrx,
+	rmnet_ipa_netifrx3,
 
 	TP_PROTO(unsigned long rx_pkt_cnt),
 
@@ -128,7 +130,7 @@ TRACE_EVENT(
 );
 
 TRACE_EVENT(
-	rmnet_ipa_netif_rcv_skb,
+	rmnet_ipa_netif_rcv_skb3,
 
 	TP_PROTO(unsigned long rx_pkt_cnt),
 
@@ -144,9 +146,10 @@ TRACE_EVENT(
 
 	TP_printk("rx_pkt_cnt=%lu", __entry->rx_pkt_cnt)
 );
+
 #endif /* _IPA_TRACE_H */
 
 /* This part must be outside protection */
 #undef TRACE_INCLUDE_PATH
-#define TRACE_INCLUDE_PATH ../../drivers/platform/msm/ipa/ipa_v2
+#define TRACE_INCLUDE_PATH .
 #include <trace/define_trace.h>

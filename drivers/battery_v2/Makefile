@@ -53,3 +53,5 @@ obj-$(CONFIG_CHARGER_S2MU004)   += s2mu004_charger.o
 obj-$(CONFIG_WIRELESS_CHARGER_BQ51221)	+= bq51221_charger.o
 obj-$(CONFIG_WIRELESS_CHARGER_P9220)	+= p9220_charger.o
 obj-$(CONFIG_WIRELESS_CHARGER_MFC)	+= mfc_charger.o
+
+ccflags-y += -Idrivers/battery_v2/include

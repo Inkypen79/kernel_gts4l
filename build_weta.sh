@@ -1,53 +1,100 @@
-#!/bin/bash
-KERN=/home/kali/Android/tabs4/android_kernel_samsung_gts4lxx/
-TODAY=`date +%Y-%m-%d.%H:%M`
+#!/usr/bin/env bash
+set -Eeuxo pipefail
+
+KERN="$HOME/KernelTabS4OneUI3.1"
+TOOLCHAIN="$HOME/toolchains/aarch64-linux-android-4.9"
+OUT="$KERN/out"
+WETA="$KERN/WETA"
+TODAY="$(date '+%Y-%m-%d.%H-%M')"
+JOBS="$(nproc)"
 
 export ARCH=arm64
-export CROSS_COMPILE=/home/kali/Android/Toolchains/aarch64-linux-android-4.9/bin/aarch64-linux-android-
-export ANDROID_MAJOR_VERSION=q
-export PLATFORM_VERSION=10.0.0
-mkdir out
+export SUBARCH=arm64
+export CROSS_COMPILE="$TOOLCHAIN/bin/aarch64-linux-android-"
+export PATH="$KERN/tools:$TOOLCHAIN/bin:$PATH"
 
-make -C $(pwd) O=out CROSS_COMPILE=/home/kali/Android/Toolchains/aarch64-linux-android-4.9/bin/aarch64-linux-android- KCFLAGS=-mno-android gts4llte_eur_open_defconfig
-make -j8 -C $(pwd) O=out CROSS_COMPILE=/home/kali/Android/Toolchains/aarch64-linux-android-4.9/bin/aarch64-linux-android- KCFLAGS=-mno-android
 
-cp $(pwd)/out/arch/arm64/boot/Image $(pwd)/arch/arm64/boot/Image
-cp $(pwd)/out/arch/arm64/boot/Image.gz $(pwd)/WETA/Image.gz
-cp $(pwd)/out/arch/arm64/boot/Image.gz-dtb $(pwd)/WETA/Image.gz-dtb
+# Ensure the legacy Android GCC toolchain is present and executable.
+if [[ ! -x "${CROSS_COMPILE}gcc" ]]; then
+    echo "ERROR: GCC compiler is missing:"
+    echo "  expected: ${CROSS_COMPILE}gcc"
+    echo "  found in bin/:"
+    ls -lah "${TOOLCHAIN}/bin"
+    exit 1
+fi
 
-cd $(pwd)/WETA
+"${CROSS_COMPILE}gcc" --version
+cd "$KERN"
 
-echo " "
+# Use -p: succeeds whether out/ already exists or not.
+mkdir -p "$OUT" "$WETA/old"
+
+cd ~/KernelTabS4OneUI3.1
+mkdir -p out/firmware
+ln -sfn ../../firmware/epen out/firmware/epen
+
+# Configure then compile.
+make O="$OUT" \
+  CROSS_COMPILE="$CROSS_COMPILE" \
+  KCFLAGS="-mno-android" \
+  gts4llte_eur_open_defconfig
+
+make -j"$JOBS" O="$OUT" \
+  CROSS_COMPILE="$CROSS_COMPILE" \
+  KCFLAGS="-mno-android"
+
+# Fail immediately if the expected build artifact was not created.
+IMAGE_GZ_DTB="$OUT/arch/arm64/boot/Image.gz-dtb"
+[[ -f "$IMAGE_GZ_DTB" ]] || {
+  echo "Build succeeded but expected image is missing: $IMAGE_GZ_DTB" >&2
+  exit 1
+}
+
+# Keep copies used by your existing WETA packaging setup.
+[[ -f "$OUT/arch/arm64/boot/Image" ]] && \
+  cp -f "$OUT/arch/arm64/boot/Image" "$KERN/arch/arm64/boot/Image"
+
+[[ -f "$OUT/arch/arm64/boot/Image.gz" ]] && \
+  cp -f "$OUT/arch/arm64/boot/Image.gz" "$WETA/Image.gz"
+
+cp -f "$IMAGE_GZ_DTB" "$WETA/Image.gz-dtb"
+
+echo
 echo "###########################################"
-echo "# Kernel zip and img found in WETA folder #"
+echo "# Building flashable AnyKernel ZIP         #"
 echo "###########################################"
-echo " "
 
-# build anykernel zip
-echo " "
-echo "# Building flashable zip #"
-echo " "
-mv $KERN/WETA/WETA_Kernel*.zip $KERN/WETA/old
-cp -f $KERN/WETA/Image.gz-dtb $KERN/WETA/weta_anykernel/zImage
-cd $KERN/WETA/weta_anykernel
-zip -r $KERN/WETA/WETA_Kernel_$TODAY.zip *
-cd $KERN
+shopt -s nullglob
+old_zips=("$WETA"/WETA_Kernel*.zip)
+(( ${#old_zips[@]} )) && mv "${old_zips[@]}" "$WETA/old/"
 
-# build weta_boot.img
-echo " "
-echo "# Building boot.img #"
-echo " "
-mv $KERN/WETA/weta_boot_*.img $KERN/WETA/old
-cd $KERN/WETA/AIK
-./unpackimg.sh
-cp -f $KERN/WETA/Image.gz-dtb $KERN/WETA/AIK/split_img/boot.img-zImage
-./repackimg.sh
-mv $KERN/WETA/AIK/image-new.img $KERN/WETA/weta_boot_$TODAY.img
-./cleanup.sh
-cd $KERN
+cp -f "$IMAGE_GZ_DTB" "$WETA/weta_anykernel/zImage"
 
-echo " "
+(
+  cd "$WETA/weta_anykernel"
+  zip -r9 "$WETA/WETA_Kernel_$TODAY.zip" .
+)
+
+echo
 echo "###########################################"
-echo "# Kernel zip and img found in WETA folder #"
+echo "# Building boot.img                        #"
 echo "###########################################"
-echo " "
+
+old_imgs=("$WETA"/weta_boot_*.img)
+(( ${#old_imgs[@]} )) && mv "${old_imgs[@]}" "$WETA/old/"
+
+(
+  cd "$WETA/AIK"
+  ./unpackimg.sh
+  cp -f "$IMAGE_GZ_DTB" ./split_img/boot.img-zImage
+  ./repackimg.sh
+  mv -f ./image-new.img "$WETA/weta_boot_$TODAY.img"
+  ./cleanup.sh
+)
+
+echo
+echo "###########################################"
+echo "# Done                                      #"
+echo "# ZIP: $WETA/WETA_Kernel_$TODAY.zip"
+echo "# IMG: $WETA/weta_boot_$TODAY.img"
+echo "###########################################"

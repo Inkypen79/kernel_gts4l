@@ -124,3 +124,22 @@ android/configs/android-*.cfg
 #Ignoring Android.bp link file
 #
 Android.bp
+
+# Local kernel build output
+/out/
+/arch/arm64/boot/Image
+/arch/arm64/boot/Image.gz
+/arch/arm64/boot/Image.gz-dtb
+
+# Generated release artifacts
+/WETA/*.zip
+/WETA/*.img
+/WETA/Image.gz
+/WETA/Image.gz-dtb
+/WETA/old/
+/WETA/weta_anykernel/zImage
+
+# Android Image Kitchen work directories / stock image
+/WETA/AIK/boot.img
+/WETA/AIK/split_img/
+/WETA/AIK/ramdisk/

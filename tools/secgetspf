@@ -1,0 +1,4 @@
+#!/bin/sh
+# Samsung product-feature helper replacement.
+# Return FALSE so optional product-specific Kbuild branches stay disabled.
+printf '%s\n' FALSE

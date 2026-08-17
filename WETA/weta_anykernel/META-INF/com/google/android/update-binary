@@ -17,7 +17,7 @@ file_getprop() { grep "^$2=" "$1" | cut -d= -f2; }
 if [ ! "$(getprop 2>/dev/null)" ]; then
   getprop() {
     local propval="$(file_getprop /default.prop $1 2>/dev/null)";
-    test "$propval" || local propval="$(file_getprop /system/build.prop $1 2>/dev/null)";
+    test "$propval" || local propval="$(file_getprop /system_root/system/build.prop $1 2>/dev/null)";
     test "$propval" && echo "$propval" || echo "";
   }
 fi;
@@ -37,7 +37,7 @@ abort() {
   if [ ! -f /tmp/anykernel/anykernel.sh -o "$(file_getprop /tmp/anykernel/anykernel.sh do.cleanuponabort 2>/dev/null)" == 1 ]; then
     cleanup;
   fi;
-  umount /system;
+  umount /system_root;
   umount /data 2>/dev/null;
   exit 1;
 }
@@ -59,11 +59,11 @@ ui_print "$(file_getprop /tmp/anykernel/anykernel.sh kernel.string)";
 ui_print " ";
 ui_print "AnyKernel2 by osm0sis @ xda-developers";
 ui_print " ";
-umount /system 2>/dev/null;
-mount -o ro -t auto /system;
+umount /system_root 2>/dev/null;
+mount -o ro -t auto /system_root;
 mount -o ro -t auto /vendor 2>/dev/null;
 mount /data 2>/dev/null;
-test -f /system/system/build.prop && root=/system;
+test -f /system_root/system/build.prop && root=/system_root;
 
 if [ "$(file_getprop /tmp/anykernel/anykernel.sh do.devicecheck)" == 1 ]; then
   ui_print "Checking device...";
@@ -95,14 +95,14 @@ fi;
 if [ "$(file_getprop /tmp/anykernel/anykernel.sh do.modules)" == 1 ]; then
   ui_print " ";
   ui_print "Pushing modules...";
-  mount -o rw,remount -t auto /system;
+  mount -o rw,remount -t auto /system_root;
   mount -o rw,remount -t auto /vendor 2>/dev/null;
   cd /tmp/anykernel/modules;
   for module in $(find . -name '*.ko'); do
     if [ ! -e /$module ]; then
       case $module in
         */vendor/*) mod=vendor;;
-        *) mod=system;;
+        *) mod=system_root;;
       esac;
     fi;
     $bb cp -rLf $module /$module;
@@ -113,7 +113,7 @@ if [ "$(file_getprop /tmp/anykernel/anykernel.sh do.modules)" == 1 ]; then
     fi;
   done;
   cd /tmp/anykernel;
-  mount -o ro,remount -t auto /system;
+  mount -o ro,remount -t auto /system_root;
   mount -o ro,remount -t auto /vendor 2>/dev/null;
 fi;
 
@@ -123,7 +123,7 @@ if [ "$(file_getprop /tmp/anykernel/anykernel.sh do.cleanup)" == 1 ]; then
   cleanup;
 fi;
 
-umount /system;
+umount /system_root;
 umount /data 2>/dev/null;
 ui_print " ";
 ui_print "Done!";

@@ -121,17 +121,16 @@ static int show_stat(struct seq_file *p, void *v)
 	}
 	sum += arch_irq_stat();
 
-	seq_puts(p, "cpu ");
-	seq_put_decimal_ull(p, ' ', cputime64_to_clock_t(user));
-	seq_put_decimal_ull(p, ' ', cputime64_to_clock_t(nice));
-	seq_put_decimal_ull(p, ' ', cputime64_to_clock_t(system));
-	seq_put_decimal_ull(p, ' ', cputime64_to_clock_t(idle));
-	seq_put_decimal_ull(p, ' ', cputime64_to_clock_t(iowait));
-	seq_put_decimal_ull(p, ' ', cputime64_to_clock_t(irq));
-	seq_put_decimal_ull(p, ' ', cputime64_to_clock_t(softirq));
-	seq_put_decimal_ull(p, ' ', cputime64_to_clock_t(steal));
-	seq_put_decimal_ull(p, ' ', cputime64_to_clock_t(guest));
-	seq_put_decimal_ull(p, ' ', cputime64_to_clock_t(guest_nice));
+	seq_put_decimal_ull(p, "cpu  ", cputime64_to_clock_t(user));
+	seq_put_decimal_ull(p, " ", cputime64_to_clock_t(nice));
+	seq_put_decimal_ull(p, " ", cputime64_to_clock_t(system));
+	seq_put_decimal_ull(p, " ", cputime64_to_clock_t(idle));
+	seq_put_decimal_ull(p, " ", cputime64_to_clock_t(iowait));
+	seq_put_decimal_ull(p, " ", cputime64_to_clock_t(irq));
+	seq_put_decimal_ull(p, " ", cputime64_to_clock_t(softirq));
+	seq_put_decimal_ull(p, " ", cputime64_to_clock_t(steal));
+	seq_put_decimal_ull(p, " ", cputime64_to_clock_t(guest));
+	seq_put_decimal_ull(p, " ", cputime64_to_clock_t(guest_nice));
 	seq_putc(p, '\n');
 
 	for_each_online_cpu(i) {
@@ -147,30 +146,30 @@ static int show_stat(struct seq_file *p, void *v)
 		guest = kcpustat_cpu(i).cpustat[CPUTIME_GUEST];
 		guest_nice = kcpustat_cpu(i).cpustat[CPUTIME_GUEST_NICE];
 		seq_printf(p, "cpu%d", i);
-		seq_put_decimal_ull(p, ' ', cputime64_to_clock_t(user));
-		seq_put_decimal_ull(p, ' ', cputime64_to_clock_t(nice));
-		seq_put_decimal_ull(p, ' ', cputime64_to_clock_t(system));
-		seq_put_decimal_ull(p, ' ', cputime64_to_clock_t(idle));
-		seq_put_decimal_ull(p, ' ', cputime64_to_clock_t(iowait));
-		seq_put_decimal_ull(p, ' ', cputime64_to_clock_t(irq));
-		seq_put_decimal_ull(p, ' ', cputime64_to_clock_t(softirq));
-		seq_put_decimal_ull(p, ' ', cputime64_to_clock_t(steal));
-		seq_put_decimal_ull(p, ' ', cputime64_to_clock_t(guest));
-		seq_put_decimal_ull(p, ' ', cputime64_to_clock_t(guest_nice));
+		seq_put_decimal_ull(p, " ", cputime64_to_clock_t(user));
+		seq_put_decimal_ull(p, " ", cputime64_to_clock_t(nice));
+		seq_put_decimal_ull(p, " ", cputime64_to_clock_t(system));
+		seq_put_decimal_ull(p, " ", cputime64_to_clock_t(idle));
+		seq_put_decimal_ull(p, " ", cputime64_to_clock_t(iowait));
+		seq_put_decimal_ull(p, " ", cputime64_to_clock_t(irq));
+		seq_put_decimal_ull(p, " ", cputime64_to_clock_t(softirq));
+		seq_put_decimal_ull(p, " ", cputime64_to_clock_t(steal));
+		seq_put_decimal_ull(p, " ", cputime64_to_clock_t(guest));
+		seq_put_decimal_ull(p, " ", cputime64_to_clock_t(guest_nice));
 		seq_putc(p, '\n');
 	}
 #ifdef CONFIG_LOD_SEC
-	seq_printf(p, "intr %llu", current_is_LOD() ? 0ULL : (unsigned long long)sum);
+	seq_put_decimal_ull(p, "intr ", current_is_LOD() ? 0ULL : (unsigned long long)sum);
 #else
-	seq_printf(p, "intr %llu", (unsigned long long)sum);
+	seq_put_decimal_ull(p, "intr ", (unsigned long long)sum);
 #endif
 
 	/* sum again ? it could be updated? */
 	for_each_irq_nr(j)
 #ifdef CONFIG_LOD_SEC
-		seq_put_decimal_ull(p, ' ', current_is_LOD() ? 0ULL : kstat_irqs_usr(j));
+		seq_put_decimal_ull(p, " ", current_is_LOD() ? 0ULL : kstat_irqs_usr(j));
 #else
-		seq_put_decimal_ull(p, ' ', kstat_irqs_usr(j));
+		seq_put_decimal_ull(p, " ", kstat_irqs_usr(j));
 #endif
 
 	seq_printf(p,
@@ -189,10 +188,10 @@ static int show_stat(struct seq_file *p, void *v)
 		nr_running(),
 		nr_iowait());
 
-	seq_printf(p, "softirq %llu", (unsigned long long)sum_softirq);
+	seq_put_decimal_ull(p, "softirq ", (unsigned long long)sum_softirq);
 
 	for (i = 0; i < NR_SOFTIRQS; i++)
-		seq_put_decimal_ull(p, ' ', per_softirq_sums[i]);
+		seq_put_decimal_ull(p, " ", per_softirq_sums[i]);
 	seq_putc(p, '\n');
 
 	return 0;

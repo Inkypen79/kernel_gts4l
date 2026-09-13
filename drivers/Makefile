@@ -214,13 +214,3 @@ obj-$(CONFIG_TRUSTONIC_TEE)	+= gud/
 
 # FINGERPRINT
 obj-$(CONFIG_SENSORS_FINGERPRINT)	+= fingerprint/
-
-# RKP
-obj-$(CONFIG_TIMA_RKP) 		+= rkp/
-
-# FIVE TEE driver
-obj-$(CONFIG_FIVE_TEE_DRIVER)	+= security/samsung/five_tee_driver/
-obj-$(CONFIG_ICD)		+= security/samsung/icdrv/
-
-# TZIC
-obj-y				+= security/samsung/tzic/

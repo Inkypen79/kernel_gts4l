@@ -98,19 +98,6 @@
 #include <linux/sec_bsp.h>
 #endif
 
-#ifdef CONFIG_TIMA_RKP
-#include <linux/rkp_entry.h>
-#endif //CONFIG_TIMA_RKP
-
-#ifdef CONFIG_RKP_CFP
-#include <linux/rkp_cfp.h>
-#endif
-
-#ifdef CONFIG_SECURITY_DEFEX
-#include <linux/defex.h>
-void __init __weak defex_load_rules(void) { }
-#endif
-
 static int kernel_init(void *);
 
 extern void init_IRQ(void);
@@ -286,11 +273,7 @@ static int __init loglevel(char *str)
 early_param("loglevel", loglevel);
 
 #ifdef CONFIG_SEC_BSP
-#ifdef CONFIG_RKP_KDP
-RKP_RO_AREA unsigned int is_boot_recovery = 0;
-#else
 unsigned int is_boot_recovery;
-#endif
 unsigned int is_boot_lpm;
 EXPORT_SYMBOL(is_boot_recovery);
 
@@ -653,104 +636,6 @@ static void __init mm_init(void)
 	ioremap_huge_init();
 	kaiser_init();
 }
-#ifdef  CONFIG_TIMA_RKP
-__attribute__((section(".rkp.bitmap"))) u8 rkp_pgt_bitmap_arr[0x30000] = {0};
-__attribute__((section(".rkp.dblmap"))) u8 rkp_map_bitmap_arr[0x30000] = {0};
-u8 rkp_started = 0;
-static void rkp_init(void)
-{
-	rkp_init_t init;
-	init.magic = RKP_INIT_MAGIC;
-	init.vmalloc_start = VMALLOC_START;
-	init.vmalloc_end = (u64)high_memory;
-	init.init_mm_pgd = (u64)__pa(swapper_pg_dir);
-	init.id_map_pgd = (u64)__pa(idmap_pg_dir);
-	init.rkp_pgt_bitmap = (u64)__pa(rkp_pgt_bitmap);
-	init.rkp_map_bitmap = (u64)__pa(rkp_map_bitmap);
-	init.rkp_pgt_bitmap_size = RKP_PGT_BITMAP_LEN;
-	init.zero_pg_addr = virt_to_phys(empty_zero_page);
-	init._text = (u64) _text;
-	init._etext = (u64) _etext;
-	init._srodata = (u64) __start_rodata;
-	init._erodata =(u64) __end_rodata;
-	if (ddr_start_type == 2)
-		init.large_memory = 1;
-	else
-		init.large_memory = 0;
-	rkp_call(RKP_INIT, (u64)&init, (u64)memstart_addr, (u64)max_pfn, (u64)kimage_voffset, 0);
-	rkp_started = 1;
-	return;
-}
-#endif
-
-#ifdef CONFIG_RKP_CFP_ROPP
-/*
- * init swapper per-thread-key and master key
- * the encryption key is changed, so need to be inlined
- */
-static inline void ropp_primary_init(void)
-{
-    unsigned long ropp_swapper_key = 0x0; 
-#ifdef CONFIG_RKP_CFP_ROPP_SYSREGKEY
-#ifdef SYSREG_DEBUG
-    ropp_swapper_key = ropp_fixed_key;
-#else
-    ropp_master_key = get_random_long();
-    ropp_swapper_key = get_random_long();
-#endif
-    asm volatile(
-            "msr "STR(RRMK)", %0\n\t"
-            "mov x17, %1"
-            ::"r" (ropp_master_key), "r" (ropp_swapper_key));
-    // This is necessary as some bits are clear
-    asm volatile("mrs %0, "STR(RRMK)"\n\t" : "=r" (ropp_master_key));
-    ropp_swapper_key = ropp_swapper_key ^ ropp_master_key;
-	//panic("help");
-#elif defined CONFIG_RKP_CFP_ROPP_RANDKEY
-    ropp_swapper_key = get_random_long();
-    asm volatile("mov x17, %0" :: "r" (ropp_swapper_key));
-#elif defined CONFIG_RKP_CFP_ROPP_FIXKEY
-    ropp_swapper_key = ropp_fixed_key;
-    asm volatile("mov x17, %0" :: "r" (ropp_swapper_key));
-#endif
-    current_thread_info()->rrk = ropp_swapper_key;    
-}
-#endif
-
-#ifdef CONFIG_RKP_KDP
-
-void kdp_init(void)
-{
-	kdp_init_t cred;
-
-	cred.credSize 	= sizeof(struct cred);
-	cred.sp_size	= rkp_get_task_sec_size();
-	cred.pgd_mm 	= offsetof(struct mm_struct,pgd);
-	cred.uid_cred	= offsetof(struct cred,uid);
-	cred.euid_cred	= offsetof(struct cred,euid);
-	cred.gid_cred	= offsetof(struct cred,gid);
-	cred.egid_cred	= offsetof(struct cred,egid);
-
-	cred.bp_pgd_cred 	= offsetof(struct cred,bp_pgd);
-	cred.bp_task_cred 	= offsetof(struct cred,bp_task);
-	cred.type_cred 		= offsetof(struct cred,type);
-	cred.security_cred 	= offsetof(struct cred,security);
-	cred.usage_cred 	= offsetof(struct cred,use_cnt);
-
-	cred.cred_task  	= offsetof(struct task_struct,cred);
-	cred.mm_task 		= offsetof(struct task_struct,mm);
-	cred.pid_task		= offsetof(struct task_struct,pid);
-	cred.rp_task		= offsetof(struct task_struct,real_parent);
-	cred.comm_task 		= offsetof(struct task_struct,comm);
-
-	cred.bp_cred_secptr 	= rkp_get_offset_bp_cred();
-
-	cred.task_threadinfo = offsetof(struct thread_info,task);
-	rkp_call(RKP_CMDID(0x40),(u64)&cred,0,0,0,0);
-	rkp_cred_enable = 1;
-}
-#endif /*CONFIG_RKP_KDP*/
-
 
 asmlinkage __visible void __init start_kernel(void)
 {
@@ -841,10 +726,6 @@ asmlinkage __visible void __init start_kernel(void)
 	sort_main_extable();
 	trap_init();
 	mm_init();
-
-#ifdef CONFIG_RKP_CFP_ROPP
-	ropp_primary_init();
-#endif
 
 	/*
 	 * Set up the scheduler prior starting any interrupts (such as the
@@ -937,54 +818,16 @@ asmlinkage __visible void __init start_kernel(void)
 	init_espfix_bsp();
 #endif
 	thread_stack_cache_init();
-#ifdef CONFIG_TIMA_RKP
-	rkp_init();
-#endif
-#ifdef CONFIG_RKP_KDP
-	kdp_init();
-#endif /*CONFIG_RKP_KDP*/
-#ifdef CONFIG_TIMA_RKP
-#ifdef CONFIG_RKP_CFP_JOPP
-	rkp_call(CFP_JOPP_INIT, 0, 0, 0, 0, 0);
-#endif
-#ifdef CONFIG_RKP_CFP_ROPP
-	rkp_call(CFP_ROPP_INIT,
-		offsetof(struct task_struct, thread_group), 
-		offsetof(struct task_struct, comm), 
-		offsetof(struct task_struct, thread), 
-		offsetof(struct cpu_context, fp), 
-		0x0
-		);
-
-#endif
-#ifdef CONFIG_RKP_CFP_ROPP_SYSREGKEY
-	rkp_call(CFP_ROPP_SAVE, ropp_master_key,
-		offsetof(struct thread_info, rrk),
-		offsetof(struct task_struct, stack), 
-		offsetof(struct task_struct, tasks),
-		offsetof(struct task_struct, pid)
-		);
-#endif
-#endif
 /*
  * secondary_startup needs to use the master key
  * can NOT zero out before this point
  */
-#if defined(CONFIG_RKP_CFP_ROPP_SYSREGKEY) && !(defined SYSREG_DEBUG)
-	asm volatile("mov %0, xzr" : "=r" (ropp_master_key));
-	pr_info("SYSREG, after zeroing out master key, mk=%lx\n", ropp_master_key);
-	BUG_ON(0 != ropp_master_key); //preventing compiler error
-#endif
 	cred_init();
 	fork_init();
 	proc_caches_init();
 	buffer_init();
 	key_init();
 	security_init();
-#ifdef CONFIG_RKP_KDP
-	if (rkp_cred_enable) 
-		rkp_call(RKP_CMDID(0x51),(u64)__rkp_ro_start,0,0,0,0);
-#endif /*CONFIG_RKP_KDP*/
 	dbg_late_init();
 	vfs_caches_init();
 	signals_init();
@@ -1324,11 +1167,6 @@ static inline void mark_readonly(void)
 }
 #endif
 
-#ifdef CONFIG_KNOX_KAP
-int boot_mode_security;
-EXPORT_SYMBOL(boot_mode_security);
-#endif
-
 static int __ref kernel_init(void *unused)
 {
 	int ret;
@@ -1453,7 +1291,4 @@ static noinline void __init kernel_init_freeable(void)
 
 	integrity_load_keys();
 	load_default_modules();
-#ifdef CONFIG_SECURITY_DEFEX
-	defex_load_rules();
-#endif
 }

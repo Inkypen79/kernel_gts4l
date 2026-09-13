@@ -54,10 +54,6 @@
 
 #include <trace/events/exception.h>
 
-#ifdef CONFIG_RKP_CFP_ROPP
-#include <linux/rkp_cfp.h>
-#endif
-
 static const char *handler[]= {
 	"Synchronous Abort",
 	"IRQ",
@@ -122,9 +118,6 @@ void sec_debug_backtrace(void)
 	static int once = 0;
 	struct stackframe frame;
 	int skip_callstack = 0;
-#ifdef CONFIG_RKP_CFP_ROPP
-	unsigned long where = 0x0;
-#endif
 
 	if (!once++) {
 		frame.fp = (unsigned long)__builtin_frame_address(0);
@@ -139,15 +132,7 @@ void sec_debug_backtrace(void)
 				break;
 
 			if (skip_callstack++ > 3) {
-#ifdef CONFIG_RKP_CFP_ROPP
-				where = frame.pc;
-				if (where>>40 != 0xffffff){
-					where = ropp_enable_backtrace(where, current);
-				}
-				_sec_debug_store_backtrace(where);
-#else
 				_sec_debug_store_backtrace(frame.pc);
-#endif
 			}
 		}
 	}
@@ -193,9 +178,6 @@ static void dump_backtrace(struct pt_regs *regs, struct task_struct *tsk)
 	struct stackframe frame;
 	unsigned long irq_stack_ptr;
 	int skip;
-#ifdef CONFIG_RKP_CFP_ROPP
-	volatile unsigned long init_pc = 0x0;
-#endif
 
 	pr_debug("%s(regs = %pK tsk = %pK)\n", __func__, regs, tsk);
 
@@ -237,14 +219,6 @@ static void dump_backtrace(struct pt_regs *regs, struct task_struct *tsk)
 
 	skip = !!regs;
 
-#ifdef CONFIG_RKP_CFP_ROPP
-#ifdef CONFIG_RKP_CFP_TEST
-	asm volatile( "mrs %0, "STR(RRMK)"\n\t" : "=r" (init_pc));
-	printk("CFP_TEST MK= %lx\n", init_pc);
-	printk("CFP_TEST RRK=%lx TK=%lx\n", task_thread_info(tsk)->rrk, task_thread_info(tsk)->rrk ^ init_pc);
-#endif
-	init_pc = frame.pc;
-#endif //CONFIG_RKP_CFP_ROPP
 	printk("Call trace:\n");
 	while (1) {
 		unsigned long where = frame.pc;
@@ -271,11 +245,6 @@ static void dump_backtrace(struct pt_regs *regs, struct task_struct *tsk)
 			break;
 
 		stack = frame.sp;
-#ifdef CONFIG_RKP_CFP_ROPP
-		if (where != init_pc && (where>>40 != 0xffffff)){
-			where = ropp_enable_backtrace(where, tsk);
-		}
-#endif
 		if (in_exception_text(where)) {
 			/*
 			 * If we switched to the irq_stack before calling this

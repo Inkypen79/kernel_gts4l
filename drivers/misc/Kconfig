@@ -113,12 +113,6 @@ config IBM_ASM
 	  for information on the specific driver level and support statement
 	  for your IBM server.
 
-config KNOX_KAP
-       bool "Enable KNOX KAP mode"
-       default n
-       help
-              Knox Active Protection mode	  
-
 config PHANTOM
 	tristate "Sensable PHANToM (PCI)"
 	depends on PCI

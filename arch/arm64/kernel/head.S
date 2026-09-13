@@ -41,10 +41,6 @@
 #include <asm/thread_info.h>
 #include <asm/virt.h>
 
-#ifdef CONFIG_RKP_CFP
-#include <asm/rkp_cfp.h>
-#endif
-
 #define __PHYS_OFFSET	(KERNEL_START - TEXT_OFFSET)
 
 #if (TEXT_OFFSET & 0xfff) != 0
@@ -221,9 +217,6 @@ ENTRY(stext)
 	mov	x19, x2				// x2=real TEXT_OFFSET
 	adr_l	x21, __boot_kernel_offset
 	stp	x1, x2, [x21]
-#endif
-#ifdef CONFIG_RKP_CFP_ROPP
-	ropp_primary_early_init
 #endif
 	bl	preserve_boot_args
 	bl	el2_setup			// Drop to EL1, w20=cpu_boot_mode
@@ -756,9 +749,6 @@ __secondary_switched:
 	mov	sp, x0
 	and	x0, x0, #~(THREAD_SIZE - 1)
 	msr	sp_el0, x0			// save thread_info
-#endif
-#ifdef CONFIG_RKP_CFP_ROPP
-	ropp_secondary_init x2
 #endif
 	mov	x29, #0
 	b	secondary_start_kernel

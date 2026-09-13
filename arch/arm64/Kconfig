@@ -718,65 +718,6 @@ config QCOM_TLB_EL2_HANDLER
 	  This option enables TLB conflict to be handled
 	  by EL2.
 
-#
-# BEGIN RKP_CFP CONFIG OPTIONS
-#
-
-menu "Control Flow Protection"
-
-config RKP_CFP
-	bool "JOPP and ROPP"
-	default n
-
-config RKP_CFP_TEST
-	bool "test file, only include in ENG build"
-	depends on RKP_CFP
-	default n
-
-config RKP_CFP_JOPP
-	bool "JOP Prevention"
-	select RKP_CFP
-	depends on TIMA_RKP
-	default n
-
-config RKP_CFP_JOPP_MAGIC
-	hex 
-	depends on RKP_CFP && RKP_CFP_JOPP
-	default "0x00be7bad"
-
-config RKP_CFP_ROPP
-	bool "ROP Prevention"
-	select RKP_CFP
-	depends on TIMA_RKP
-	default n
-
-choice
-	prompt "ROPP key"
-	default RKP_CFP_ROPP_RANDKEY
-	depends on RKP_CFP && RKP_CFP_ROPP
-
-config RKP_CFP_ROPP_HYPKEY
-	bool "Use hypervisor"
-
-config RKP_CFP_ROPP_SYSREGKEY
-	bool "Use system register"
-
-config RKP_CFP_ROPP_RANDKEY
-	bool "random key"
-
-config RKP_CFP_ROPP_FIXKEY
-	bool "fixed key"
-
-config RKP_CFP_ROPP_ZEROKEY
-	bool "zero key"
-
-endchoice
-endmenu
-
-#
-# END RKP_CFP CONFIG OPTIONS
-#
-
 source kernel/Kconfig.preempt
 source kernel/Kconfig.hz
 
@@ -1744,46 +1685,6 @@ config TIMA
 	bool "Enable TIMA(Trustzone based Integrity Measurement Archtecture feature"
 	default n
 
-config TIMA_RKP
-	bool "Samsung KNOX realtime kernel protection"
-	default n
-	select UH_RKP
-	help
-	  this enables realtime kernel protection
-
-config UH_RKP
-	bool "Enable RKP (Realtime Kernel Protection) UH feature"
-	help
-	  it protects a kernel text and etc.
-
-config RKP_KDP
-	bool "Protection for cred structure"
-	depends on TIMA_RKP
-	depends on !SEC_FACTORY
-	depends on SAMSUNG_PRODUCT_SHIP
-	default n
-	help
-	  Prevents unauthorized cred modification.
-
-config RKP_NS_PROT
-	bool "Protection for cred structure"
-	depends on RKP_KDP
-	depends on !SEC_FACTORY
-	depends on SAMSUNG_PRODUCT_SHIP
-	default n
-	help
-	  Prevents unauthorized cred modification.
-
-
-config RKP_DMAP_PROT
-        bool "Page Double Mapping protection"
-	depends on RKP_KDP
-	depends on !SEC_FACTORY
-	depends on SAMSUNG_PRODUCT_SHIP
-        default n
-        help
-          Prevents unauthorized mapping for page table.
-
 config RELOCATABLE_KERNEL 
 	bool "set kernel to relocatable in both virtual and physical address"
 	default n
@@ -1838,10 +1739,6 @@ source "drivers/cpuidle/Kconfig"
 source "drivers/cpufreq/Kconfig"
 
 endmenu
-
-#
-# END RKP_CFP CONFIG OPTIONS
-#
 
 config DRV_SAMSUNG
 	bool "samsung device dedicated drivers option"

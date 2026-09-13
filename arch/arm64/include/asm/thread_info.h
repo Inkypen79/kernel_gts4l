@@ -22,9 +22,6 @@
 #ifdef __KERNEL__
 
 #include <linux/compiler.h>
-#ifdef CONFIG_RKP_CFP_ROPP
-#include <linux/rkp_cfp.h>
-#endif
 
 #ifdef CONFIG_ARM64_4K_PAGES
 #define THREAD_SIZE_ORDER	2
@@ -60,17 +57,9 @@ struct thread_info {
 //#ifndef CONFIG_THREAD_INFO_IN_TASK
 	int			cpu;		/* cpu */
 //#endif
-#ifdef CONFIG_RKP_CFP_ROPP
-	unsigned long rrk;
-#endif
 };
 
-#ifdef CONFIG_RKP_CFP_ROPP
-# define INIT_THREAD_INFO_RKP_CFP(tsk)					\
-	.rrk = 0,
-#else
 # define INIT_THREAD_INFO_RKP_CFP(tsk)
-#endif
 
 #ifdef CONFIG_THREAD_INFO_IN_TASK
 #define INIT_THREAD_INFO(tsk)						\

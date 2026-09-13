@@ -65,14 +65,8 @@ obj-$(CONFIG_UID_SYS_STATS) += uid_sys_stats.o
 obj-y				+= qcom/
 obj-$(CONFIG_QPNP_MISC) 	+= qpnp-misc.o
 obj-$(CONFIG_MEMORY_STATE_TIME) += memory_state_time.o
-obj-$(CONFIG_TIMA_LOG)		+= tima_debug_log.o
 
 obj-$(CONFIG_SEC_BSP) += sec_misc.o sec_param.o
 obj-$(CONFIG_ARGOS)  += sec_argos.o
-
-# for DMVerity
-obj-$(CONFIG_DM_VERITY)		+= dmverity_query.o
-
-obj-$(CONFIG_RKP_CFP_TEST)	+= cfp_test.o
 
 obj-$(CONFIG_DEV_RIL_BRIDGE)	+= dev_ril_bridge/

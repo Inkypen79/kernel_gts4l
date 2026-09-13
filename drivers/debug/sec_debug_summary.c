@@ -418,9 +418,6 @@ int summary_set_task_info(struct sec_debug_summary_data_apss *apss)
 	SET_MEMBER_TYPE_INFO(&apss->task.ti.flags, struct thread_info, flags);
 	SET_MEMBER_TYPE_INFO(&apss->task.ti.task, struct thread_info, task);
 	SET_MEMBER_TYPE_INFO(&apss->task.ti.cpu, struct thread_info, cpu);
-#ifdef CONFIG_RKP_CFP_ROPP
-	SET_MEMBER_TYPE_INFO(&apss->task.ti.rrk, struct thread_info, rrk);
-#endif
 
 	apss->task.ts.struct_size = sizeof(struct task_struct);
 	SET_MEMBER_TYPE_INFO(&apss->task.ts.state, struct task_struct, state);
@@ -445,11 +442,7 @@ int summary_set_task_info(struct sec_debug_summary_data_apss *apss)
 #endif
 
 	apss->task.init_task = (uint64_t)&init_task;
-#ifdef CONFIG_RKP_CFP_ROPP_SYSREGKEY
-	apss->task.ropp.magic = 0x50504F52;
-#else
 	apss->task.ropp.magic = 0x0;
-#endif
 
 	return 0;
 }

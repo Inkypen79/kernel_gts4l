@@ -956,12 +956,6 @@ config QCOM_SMCINVOKE
 	  Enable SMCInvoke driver which supports capability based secure
 	  communication between QSEE and HLOS.
 
-config TIMA_TEST_INFRA
-       tristate "Testing infrastructure for TIMA"
-       default n
-       help
-         Kernel bits of the TIMA test infrastructure
-
 config QCOM_EARLY_RANDOM
 	bool "Initialize random pool very early"
 	help

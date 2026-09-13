@@ -40,20 +40,6 @@
 #include <linux/ecryptfs.h>
 #include <linux/crypto.h>
 
-#ifdef CONFIG_SDP
-#include <sdp/dek_common.h>
-#include <linux/list.h>
-#include <linux/spinlock.h>
-#endif
-#ifdef CONFIG_DLP
-#include "ecryptfs_dlp.h"
-#endif
-
-#ifdef CONFIG_ECRYPTFS_FEK_INTEGRITY
-#define HASH_OFFSET 512
-#define FEK_HASH_SIZE 32
-#endif
-
 #ifdef CONFIG_WTL_ENCRYPTION_FILTER
 #define ENC_NAME_FILTER_MAX_INSTANCE 5
 #define ENC_NAME_FILTER_MAX_LEN (256*5)
@@ -74,9 +60,6 @@
 #define ECRYPTFS_BASE_PATH_SIZE 1024
 #define ECRYPTFS_LABEL_SIZE 1024
 #define SEC_ECRYPTFS_HMAC_KEY_SIZE   32
-#ifdef CONFIG_SDP
-#define PKG_NAME_SIZE 16
-#endif
 
 void ecryptfs_dump_auth_tok(struct ecryptfs_auth_tok *auth_tok);
 extern void ecryptfs_to_hex(char *dst, char *src, size_t src_size);
@@ -184,7 +167,6 @@ ecryptfs_get_key_payload_data(struct key *key)
 #define ECRYPTFS_TAG_70_DIGEST ECRYPTFS_DEFAULT_HASH
 #define ECRYPTFS_TAG_1_PACKET_TYPE 0x01
 #define ECRYPTFS_TAG_3_PACKET_TYPE 0x8C
-#define ECRYPTFS_DEK_PACKET_TYPE   0xD0 /* CONFIG_EPM dek ecryptfs packet block */
 #define ECRYPTFS_TAG_11_PACKET_TYPE 0xED
 #define ECRYPTFS_TAG_64_PACKET_TYPE 0x40
 #define ECRYPTFS_TAG_65_PACKET_TYPE 0x41
@@ -279,15 +261,6 @@ struct ecryptfs_crypt_stat {
 #ifdef CONFIG_WTL_ENCRYPTION_FILTER
 #define ECRYPTFS_ENCRYPTED_OTHER_DEVICE 0x00008000
 #endif
-#ifdef CONFIG_SDP
-#define ECRYPTFS_DEK_SDP_ENABLED      0x00100000
-#define ECRYPTFS_DEK_IS_SENSITIVE     0x00200000
-#define ECRYPTFS_DEK_MULTI_ENGINE     0x00400000 // eCryptfs header contains engine id.
-#define ECRYPTFS_SDP_IS_CHAMBER_DIR   0x02000000
-#endif
-#ifdef CONFIG_DLP
-#define ECRYPTFS_DLP_ENABLED		  0x04000000
-#endif
 #define ECRYPTFS_SUPPORT_HMAC_KEY     0x00010000
 
 	u32 flags;
@@ -305,22 +278,12 @@ struct ecryptfs_crypt_stat {
 	unsigned char cipher[ECRYPTFS_MAX_CIPHER_NAME_SIZE + 1];
 	unsigned char key[ECRYPTFS_MAX_KEY_BYTES];
 	unsigned char root_iv[ECRYPTFS_MAX_IV_BYTES];
-#ifdef CONFIG_ECRYPTFS_FEK_INTEGRITY
-	unsigned char hash[FEK_HASH_SIZE];
-#endif
 	struct list_head keysig_list;
 	struct mutex keysig_list_mutex;
 	struct mutex cs_tfm_mutex;
 	struct mutex cs_hash_tfm_mutex;
 	struct mutex cs_mutex;
 	unsigned char cipher_mode[ECRYPTFS_MAX_CIPHER_NAME_SIZE + 1];
-#ifdef CONFIG_SDP
-	int engine_id;
-	dek_t sdp_dek;
-#endif
-#ifdef CONFIG_DLP
-	struct knox_dlp_data expiry;
-#endif
 };
 
 /* inode private data. */
@@ -421,12 +384,6 @@ struct ecryptfs_mount_crypt_stat {
 #ifdef CONFIG_CRYPTO_FIPS
 #define ECRYPTFS_ENABLE_CC                     0x00000400
 #endif
-#ifdef CONFIG_SDP
-#define ECRYPTFS_MOUNT_SDP_ENABLED             0x80000000
-#endif
-#ifdef CONFIG_DLP
-#define ECRYPTFS_MOUNT_DLP_ENABLED             0x40000000
-#endif
 
 	u32 flags;
 	struct list_head global_auth_tok_list;
@@ -446,13 +403,6 @@ struct ecryptfs_mount_crypt_stat {
 				[ENC_NAME_FILTER_MAX_LEN + 1];
 	char enc_filter_ext[ENC_EXT_FILTER_MAX_INSTANCE]
 				[ENC_EXT_FILTER_MAX_LEN + 1];
-#endif
-#ifdef CONFIG_SDP
-	int userid;
-	struct list_head chamber_dir_list;
-	spinlock_t chamber_dir_list_lock;
-
-	int partition_id;
 #endif
 
 };
@@ -482,9 +432,6 @@ struct ecryptfs_sb_info {
 	struct ecryptfs_mount_crypt_stat mount_crypt_stat;
 	struct backing_dev_info bdi;
 	struct ecryptfs_propagate_stat propagate_stat;
-#ifdef CONFIG_SDP
-	int userid;
-#endif
 };
 
 /* file private data. */
@@ -844,15 +791,9 @@ ecryptfs_add_global_auth_tok(struct ecryptfs_mount_crypt_stat *mount_crypt_stat,
 int ecryptfs_get_global_auth_tok_for_sig(
 	struct ecryptfs_global_auth_tok **global_auth_tok,
 	struct ecryptfs_mount_crypt_stat *mount_crypt_stat, char *sig);
-#ifdef CONFIG_CRYPTO_FIPS
-int
-ecryptfs_add_new_key_tfm(struct ecryptfs_key_tfm **key_tfm, char *cipher_name,
-			 size_t key_size, u32 mount_flags);
-#else
 int
 ecryptfs_add_new_key_tfm(struct ecryptfs_key_tfm **key_tfm, char *cipher_name,
 			 size_t key_size);
-#endif
 int ecryptfs_init_crypto(void);
 int ecryptfs_destroy_crypto(void);
 #ifdef CONFIG_CRYPTO_FIPS

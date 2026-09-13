@@ -669,14 +669,6 @@ endif
 # Tell gcc to never replace conditional load with a non-conditional one
 KBUILD_CFLAGS	+= $(call cc-option,--param=allow-store-data-races=0)
 
-ifdef CONFIG_RKP_CFP_JOPP
-JOPP_CC		?= $(srctree)/toolchain/gcc-cfp/gcc-cfp-jopp-only/aarch64-linux-android-4.9/bin/aarch64-linux-android-gcc
-CC		= $(srctree)/scripts/gcc-wrapper.py $(JOPP_CC)
-endif
-ifdef CONFIG_RKP_CFP_ROPP
-ROPP_CC		?= $(srctree)/toolchain/gcc-cfp/gcc-cfp-single/aarch64-linux-android-4.9/bin/aarch64-linux-android-gcc
-CC		= $(srctree)/scripts/gcc-wrapper.py $(ROPP_CC)
-endif
 # check for 'asm goto'
 ifeq ($(shell $(CONFIG_SHELL) $(srctree)/scripts/gcc-goto.sh $(CC) $(KBUILD_CFLAGS)), y)
 	KBUILD_CFLAGS += -DCC_HAVE_ASM_GOTO
@@ -788,17 +780,6 @@ endif
 ifdef CONFIG_DEBUG_INFO_DWARF4
 KBUILD_CFLAGS	+= $(call cc-option, -gdwarf-4,)
 endif
-
-ifdef CONFIG_RKP_CFP_JOPP
-# Don't use jump tables for switch statements, since this generates indirect jump (br) 
-# instructions, which are very dangerous for kernel control flow integrity.
-KBUILD_CFLAGS	+= -fno-jump-tables
-endif 
-
-ifdef CONFIG_RKP_CFP_ROPP
-# Don't let gcc allocate these registers, they are reserved for use by static binary instrumentation.
-KBUILD_CFLAGS	+= -ffixed-x16 -ffixed-x17
-endif 
 
 ifdef CONFIG_DEBUG_INFO_REDUCED
 KBUILD_CFLAGS 	+= $(call cc-option, -femit-struct-debug-baseonly) \

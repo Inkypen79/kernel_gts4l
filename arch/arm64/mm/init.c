@@ -46,9 +46,6 @@
 #include <asm/sizes.h>
 #include <asm/tlb.h>
 #include <asm/alternative.h>
-#ifdef CONFIG_TIMA_RKP
-#include <linux/rkp_entry.h>
-#endif
 
 #include "mm.h"
 
@@ -459,9 +456,6 @@ static inline void poison_init_mem(void *s, size_t count)
 	memset(s, 0, count);
 }
 
-#ifdef CONFIG_TIMA_RKP
-u8 rkp_def_init_done = 0;
-#endif
 void free_initmem(void)
 {
 	free_initmem_default(0);
@@ -469,11 +463,6 @@ void free_initmem(void)
 	fixup_init();
 #endif
 	//free_alternatives_memory();
-#ifdef CONFIG_TIMA_RKP
-	rkp_def_init_done = 1;
-	isb();
-	rkp_call(RKP_DEF_INIT, 0, 0, 0, 0, 0);
-#endif
 #if (defined(CONFIG_RELOCATABLE_KERNEL) || defined(CONFIG_RANDOMIZE_BASE))
 #define	KASLR_BL_ADDR 0x9fa07000
 	rkp_assign_mem_to_hyp(KASLR_BL_ADDR, PAGE_SIZE);

@@ -116,13 +116,9 @@ ____bitscatter(char *buf, unsigned int *lfsr, unsigned int *ppoly)
 	"	mov	x13, x12\n"
 	"	mov	x14, x13\n"
 	"	mov	x15, x14\n"
-#ifdef CONFIG_RKP_CFP_ROPP
-	"	mov	x18, x15\n"
-#else
 	"	mov	x16, x15\n"
 	"	mov	x17, x16\n"
 	"	mov	x18, x17\n"
-#endif
 	"	udiv	%0, %0, x18\n"
 	"	lsl	w5, w5, w4\n"
 	"	bic	w3, w3, w5\n"

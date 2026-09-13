@@ -1609,10 +1609,6 @@ union rcu_special {
 };
 struct rcu_node;
 
-#ifdef CONFIG_FIVE
-struct task_integrity;
-#endif
-
 enum perf_event_task_context {
 	perf_invalid_context = -1,
 	perf_hw_context = 0,
@@ -2119,12 +2115,6 @@ struct task_struct {
 #if defined(CONFIG_BCACHE) || defined(CONFIG_BCACHE_MODULE)
 	unsigned int	sequential_io;
 	unsigned int	sequential_io_avg;
-#endif
-#ifdef CONFIG_SDP
-	unsigned int sensitive;
-#endif
-#ifdef CONFIG_FIVE
-	struct task_integrity *integrity;
 #endif
 #ifdef CONFIG_DEBUG_ATOMIC_SLEEP
 	unsigned long	task_state_change;

@@ -259,9 +259,6 @@ void ufshcd_update_query_stats(struct ufs_hba *hba,
 #define ufshcd_hex_dump(prefix_str, buf, len) \
 print_hex_dump(KERN_ERR, prefix_str, DUMP_PREFIX_OFFSET, 16, 4, buf, len, false)
 
-/* Called by FS */
-extern void (*ufs_debug_func)(void *);
-
 static u32 ufs_query_desc_max_size[] = {
 	QUERY_DESC_DEVICE_MAX_SIZE,
 	QUERY_DESC_CONFIGURAION_MAX_SIZE,
@@ -11418,10 +11415,6 @@ int ufshcd_init(struct ufs_hba *hba, void __iomem *mmio_base, unsigned int irq)
 		hba->spm_lvl = ufs_get_desired_pm_lvl_for_dev_link_state(
 							UFS_SLEEP_PWR_MODE,
 							UIC_LINK_HIBERN8_STATE);
-
-	/* init ufs_sec_debug function */
-	ufs_sec_send_errinfo(hba);
-	ufs_debug_func = ufs_sec_send_errinfo;
 
 	/* Hold auto suspend until async scan completes */
 	pm_runtime_get_sync(dev);

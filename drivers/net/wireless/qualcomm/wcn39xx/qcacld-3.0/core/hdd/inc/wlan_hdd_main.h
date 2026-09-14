@@ -140,7 +140,7 @@ struct hdd_apf_context {
  * works properly on all architectures.
  *
  */
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(4, 6, 0))
+#if 0
 static inline bool in_compat_syscall(void) { return is_compat_task(); }
 #endif
 

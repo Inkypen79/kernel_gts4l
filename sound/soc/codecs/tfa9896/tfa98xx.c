@@ -2081,7 +2081,7 @@ static int tfa98xx_info_profile(struct snd_kcontrol *kcontrol,
 		return -EINVAL;
 
 	strlcpy(uinfo->value.enumerated.name,
-		profile_name, strlen(profile_name));
+		profile_name, sizeof(uinfo->value.enumerated.name));
 
 	return 0;
 }

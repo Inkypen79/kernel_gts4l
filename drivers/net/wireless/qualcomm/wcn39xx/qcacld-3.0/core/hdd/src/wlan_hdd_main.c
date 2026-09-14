@@ -14208,7 +14208,7 @@ static ssize_t store_pm_info(struct kobject *kobj,
 	return ret_val;
 }
 
-int wlan_hdd_sec_get_psm()
+int wlan_hdd_sec_get_psm(void)
 {
 	return sec_rfmode_off;
 }

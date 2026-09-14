@@ -197,22 +197,22 @@ module_param_named(pwdt_sync_cnt, pwdt_sync_cnt, ulong, 0644);
 
 module_param_named(pm8941_rev, pm8941_rev, uint, 0644);
 module_param_named(pm8841_rev, pm8841_rev, uint, 0644);
-static int force_error(const char *val, struct kernel_param *kp);
+static int force_error(const char *val, const struct kernel_param *kp);
 module_param_call(force_error, force_error, NULL, NULL, 0644);
 
-static int sec_alloc_virtual_mem(const char *val, struct kernel_param *kp);
+static int sec_alloc_virtual_mem(const char *val, const struct kernel_param *kp);
 module_param_call(alloc_virtual_mem, sec_alloc_virtual_mem, NULL, NULL, 0644);
 
-static int sec_free_virtual_mem(const char *val, struct kernel_param *kp);
+static int sec_free_virtual_mem(const char *val, const struct kernel_param *kp);
 module_param_call(free_virtual_mem, sec_free_virtual_mem, NULL, NULL, 0644);
 
-static int sec_alloc_physical_mem(const char *val, struct kernel_param *kp);
+static int sec_alloc_physical_mem(const char *val, const struct kernel_param *kp);
 module_param_call(alloc_physical_mem, sec_alloc_physical_mem, NULL, NULL, 0644);
 
-static int sec_free_physical_mem(const char *val, struct kernel_param *kp);
+static int sec_free_physical_mem(const char *val, const struct kernel_param *kp);
 module_param_call(free_physical_mem, sec_free_physical_mem, NULL, NULL, 0644);
 
-static int dbg_set_cpu_affinity(const char *val, struct kernel_param *kp);
+static int dbg_set_cpu_affinity(const char *val, const struct kernel_param *kp);
 module_param_call(setcpuaff, dbg_set_cpu_affinity, NULL, NULL, 0644);
 
 /* klaatu - schedule log */
@@ -421,7 +421,7 @@ static void simulate_bus_hang(void)
 }
 #endif
 
-static int force_error(const char *val, struct kernel_param *kp)
+static int force_error(const char *val, const struct kernel_param *kp)
 {
 	pr_emerg("!!!WARN forced error : %s\n", val);
 
@@ -497,7 +497,7 @@ static int force_error(const char *val, struct kernel_param *kp)
 static long * g_allocated_phys_mem = NULL;
 static long * g_allocated_virt_mem = NULL;
 
-static int sec_alloc_virtual_mem(const char *val, struct kernel_param *kp)
+static int sec_alloc_virtual_mem(const char *val, const struct kernel_param *kp)
 {
 	long * mem;
 	char * str = (char *) val;
@@ -523,7 +523,7 @@ static int sec_alloc_virtual_mem(const char *val, struct kernel_param *kp)
 	return -EAGAIN;
 }
 
-static int sec_free_virtual_mem(const char *val, struct kernel_param *kp)
+static int sec_free_virtual_mem(const char *val, const struct kernel_param *kp)
 {
 	long * mem;
 	char * str = (char *) val;
@@ -566,7 +566,7 @@ static int sec_free_virtual_mem(const char *val, struct kernel_param *kp)
 	return 0;
 }
 
-static int sec_alloc_physical_mem(const char *val, struct kernel_param *kp)
+static int sec_alloc_physical_mem(const char *val, const struct kernel_param *kp)
 {
         long * mem;
 	char * str = (char *) val;
@@ -592,7 +592,7 @@ static int sec_alloc_physical_mem(const char *val, struct kernel_param *kp)
         return -EAGAIN;
 }
 
-static int sec_free_physical_mem(const char *val, struct kernel_param *kp)
+static int sec_free_physical_mem(const char *val, const struct kernel_param *kp)
 {
         long * mem;
         char * str = (char *) val;
@@ -635,7 +635,7 @@ static int sec_free_physical_mem(const char *val, struct kernel_param *kp)
 	return 0;
 }
 
-static int dbg_set_cpu_affinity(const char *val, struct kernel_param *kp)
+static int dbg_set_cpu_affinity(const char *val, const struct kernel_param *kp)
 {
 	char *endptr;
 	pid_t pid;

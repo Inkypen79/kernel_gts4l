@@ -164,13 +164,13 @@ struct alg_test_desc {
 static unsigned int IDX[8] = { IDX1, IDX2, IDX3, IDX4, IDX5, IDX6, IDX7, IDX8 };
 
 #ifdef CONFIG_CRYPTO_FIPS
-bool in_fips_err()
+bool in_fips_err(void)
 {
 	return (IN_FIPS_ERROR == FIPS_ERR);
 }
 EXPORT_SYMBOL_GPL(in_fips_err);
 
-void set_in_fips_err()
+void set_in_fips_err(void)
 {
 	IN_FIPS_ERROR = FIPS_ERR;
 }

@@ -181,10 +181,6 @@ static bool sleep_disabled;
 module_param_named(sleep_disabled,
 	sleep_disabled, bool, S_IRUGO | S_IWUSR | S_IWGRP);
 
-#ifdef CONFIG_SEC_PM
-extern int wakeup_irq_flag;
-#endif
-
 s32 msm_cpuidle_get_deep_idle_latency(void)
 {
 	return 10;
@@ -1975,10 +1971,6 @@ static int lpm_suspend_enter(suspend_state_t state)
 	 * LPMs(XO and Vmin).
 	 */
 	clock_debug_print_enabled();
-
-#ifdef CONFIG_SEC_PM
-    wakeup_irq_flag = 1;
-#endif
 
 	BUG_ON(!use_psci);
 	psci_enter_sleep(cluster, idx, true);

@@ -924,21 +924,12 @@ static struct irq_chip msm_gpio_irq_chip = {
 	.irq_set_wake   = msm_gpio_irq_set_wake,
 };
 
-#ifdef CONFIG_SEC_PM
-int wakeup_irq_flag = 0;
-extern char last_resume_kernel_reason[];
-extern int last_resume_kernel_reason_len;
-#endif
-
 static void msm_gpio_irq_handler(struct irq_desc *desc)
 {
 	struct gpio_chip *gc = irq_desc_get_handler_data(desc);
 	const struct msm_pingroup *g;
 	struct msm_pinctrl *pctrl = to_msm_pinctrl(gc);
 	struct irq_chip *chip = irq_desc_get_chip(desc);
-#ifdef CONFIG_SEC_PM
-	struct irq_desc *desc_g;
-#endif
 	int irq_pin;
 	int handled = 0;
 	u32 val;
@@ -955,27 +946,6 @@ static void msm_gpio_irq_handler(struct irq_desc *desc)
 		val = readl(pctrl->regs + g->intr_status_reg);
 		if (val & BIT(g->intr_status_bit)) {
 			irq_pin = irq_find_mapping(gc->irqdomain, i);
-#ifdef CONFIG_SEC_PM
-			desc_g = irq_to_desc(irq_pin);
-			if (wakeup_irq_flag == 1) {
-				if (desc_g && desc_g->action && desc_g->action->name) {
-					pr_warn("Resume caused by GPIO %d, %s\n",
-							irq_pin, desc_g->action->name);
-					last_resume_kernel_reason_len +=
-							sprintf(last_resume_kernel_reason + last_resume_kernel_reason_len,
-							"[GPIO%d,%s]",
-							irq_pin, desc_g->action->name);
-				} else {
-					pr_warn("Resume caused by GPIO %d\n",
-							irq_pin);
-					last_resume_kernel_reason_len +=
-							sprintf(last_resume_kernel_reason + last_resume_kernel_reason_len,
-							"[GPIO%d]",
-							irq_pin);
-				}
-				wakeup_irq_flag = 0;
-			}
-#endif
 			generic_handle_irq(irq_pin);
 			handled++;
 		}

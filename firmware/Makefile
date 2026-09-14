@@ -215,8 +215,8 @@ wordsize_deps := $(wildcard include/config/64bit.h include/config/32bit.h \
 		include/config/superh32.h include/config/superh64.h \
 		include/config/x86_32.h include/config/x86_64.h)
 
-$(patsubst %,$(obj)/%.gen.S, $(fw-shipped-y)): %: $(wordsize_deps)
-	$(call cmd,fwbin,$(patsubst %.gen.S,%,$@))
+$(patsubst %,$(obj)/%.gen.S, $(fw-shipped-y)): $(obj)/%.gen.S: $(srctree)/firmware/% $(wordsize_deps)
+	$(call cmd,fwbin,$(srctree)/firmware/$*)
 $(patsubst %,$(obj)/%.gen.S, $(fw-external-y)): %: $(wordsize_deps) \
 		include/config/extra/firmware/dir.h
 	$(call cmd,fwbin,$(fwabs)/$(patsubst $(obj)/%.gen.S,%,$@))

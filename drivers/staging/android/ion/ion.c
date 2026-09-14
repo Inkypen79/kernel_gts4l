@@ -797,6 +797,9 @@ static void *ion_buffer_kmap_get(struct ion_buffer *buffer)
 	void *vaddr;
 
 	if (buffer->kmap_cnt) {
+		if (buffer->kmap_cnt == INT_MAX)
+			return ERR_PTR(-EOVERFLOW);
+
 		buffer->kmap_cnt++;
 		return buffer->vaddr;
 	}
@@ -817,6 +820,9 @@ static void *ion_handle_kmap_get(struct ion_handle *handle)
 	void *vaddr;
 
 	if (handle->kmap_cnt) {
+		if (handle->kmap_cnt == INT_MAX)
+			return ERR_PTR(-EOVERFLOW);
+
 		handle->kmap_cnt++;
 		return buffer->vaddr;
 	}
@@ -1705,14 +1711,8 @@ static long ion_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 						data.allocation.align,
 						data.allocation.heap_id_mask,
 						data.allocation.flags, true);
-		if (IS_ERR(handle)) {
-			pr_err("%s: len %zu align %zu heap_id_mask %#x flags %x ret %ld\n",
-			       __func__, data.allocation.len,
-			       data.allocation.align,
-			       data.allocation.heap_id_mask,
-			       data.allocation.flags, PTR_ERR(handle));
+		if (IS_ERR(handle))
 			return PTR_ERR(handle);
-		}
 		data.allocation.handle = handle->id;
 
 		cleanup_handle = handle;

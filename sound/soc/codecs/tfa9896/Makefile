@@ -11,6 +11,7 @@ TFA_USE_PSTREAM_ONLY     =1
 TFA_NO_SND_FORMAT_CHECK  =0
 TFA_SRC_DIR              =sound/soc/codecs/$(TFA_VERSION)
 TFA98XX_FLAGS           := -DUSE_TFA9896
+TFA98XX_FLAGS           += $(call cc-disable-warning, enum-conversion)
 
 # cc flags
 #ccflags-y               := -DDEBUG

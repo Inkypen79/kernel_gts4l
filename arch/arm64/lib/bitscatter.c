@@ -278,7 +278,7 @@ static int bitscatterd(void *arg)
 	return 0;
 }
 
-static int run_bitscatter(const char *val, struct kernel_param *kp)
+static int run_bitscatter(const char *val, const struct kernel_param *kp)
 {
 	int err = -EBUSY;
 
@@ -425,7 +425,7 @@ static int run_bitscatter(const char *val, struct kernel_param *kp)
 module_param_call(mode, run_bitscatter, NULL, NULL, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(mode, "configuring what mode bitscatter runs;'burst','hook','mixed','stop'");
 
-static int bitscatter_nrtest(const char *val, struct kernel_param *kp)
+static int bitscatter_nrtest(const char *val, const struct kernel_param *kp)
 {
 	int num = (int)simple_strtoul((const char *)val, NULL, 10);
 
@@ -441,7 +441,7 @@ static int bitscatter_nrtest(const char *val, struct kernel_param *kp)
 module_param_call(num, bitscatter_nrtest, NULL, NULL, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(num, "configuring how many times bitscatter runs");
 
-static int bitscatter_memsz(const char *val, struct kernel_param *kp)
+static int bitscatter_memsz(const char *val, const struct kernel_param *kp)
 {
 	int size = (int)simple_strtoul((const char *)val, NULL, 10);
 
@@ -462,7 +462,7 @@ static int bitscatter_memsz(const char *val, struct kernel_param *kp)
 module_param_call(size, bitscatter_memsz, NULL, NULL, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(size, "configuring how large space bitscatter runs(in Kbyte unit)");
 
-static int bitscatter_nrthread(const char *val, struct kernel_param *kp)
+static int bitscatter_nrthread(const char *val, const struct kernel_param *kp)
 {
 	int num = (int)simple_strtoul((const char *)val, NULL, 10);
 

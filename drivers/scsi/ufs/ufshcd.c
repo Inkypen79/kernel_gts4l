@@ -259,9 +259,6 @@ void ufshcd_update_query_stats(struct ufs_hba *hba,
 #define ufshcd_hex_dump(prefix_str, buf, len) \
 print_hex_dump(KERN_ERR, prefix_str, DUMP_PREFIX_OFFSET, 16, 4, buf, len, false)
 
-/* Called by FS */
-extern void (*ufs_debug_func)(void *);
-
 static u32 ufs_query_desc_max_size[] = {
 	QUERY_DESC_DEVICE_MAX_SIZE,
 	QUERY_DESC_CONFIGURAION_MAX_SIZE,
@@ -11199,59 +11196,6 @@ static void ufshcd_init_lanes_per_dir(struct ufs_hba *hba)
 }
 
 /**
- * ufs_sec_send_errinfo - Send UFS Error Information to AP
- * Format : U0H0L0X0Q0R0W0F0
- * U : UTP cmd ERRor count
- * H : HWRESET count
- * L : Link startup failure count
- * X : Link Lost Error count
- * Q : UTMR QUERY_TASK error count
- * R : READ error count
- * W : WRITE error count
- * F : Device Fatal Error count
- **/
-static void ufs_sec_send_errinfo(void *data) {
-	static struct ufs_hba *hba = NULL;
-	struct SEC_UFS_counting *err_info;
-	char buf[18];
-
-	if (data) {
-		hba = (struct ufs_hba *)data;
-		return;
-	}
-	if (!hba) {
-		printk(KERN_ERR "%s: hba is not initialized\n", __func__);
-		return;
-	}
-	if (&(hba->SEC_err_info))
-	{
-		err_info = &(hba->SEC_err_info);
-		sprintf(buf, "U%1dH%1dL%1dX%1dQ%1dR%1dW%1dF%1d\n", 
-				(err_info->UTP_count.UTP_err > 9) 		/* UTP Error */
-				? 9 : err_info->UTP_count.UTP_err,
-				(err_info->op_count.HW_RESET_count > 9) 	/* HW Reset */
-				? 9 : err_info->op_count.HW_RESET_count,
-				(err_info->op_count.link_startup_count > 9) 	/* Link Startup Fail */
-				? 9 : err_info->op_count.link_startup_count,
-				(err_info->Fatal_err_count.LLE > 9) 		/* Link Lost */
-				? 9 : err_info->Fatal_err_count.LLE,
-				(err_info->UTP_count.UTMR_query_task_count > 9)	/* Query task */
-				? 9 : err_info->UTP_count.UTMR_query_task_count,
-				(err_info->UTP_count.UTR_read_err > 9) 		/* UTRR */
-				? 9 : err_info->UTP_count.UTR_read_err,
-				(err_info->UTP_count.UTR_write_err > 9 ) 	/* UTRW */
-				? 9 : err_info->UTP_count.UTR_write_err,
-				(err_info->Fatal_err_count.DFE > 9 		/* Device Fatal Error */
-				 ? 9 : err_info->Fatal_err_count.DFE));
-		printk(KERN_ERR "%s: Send UFS information to AP : %s\n", __func__, buf);
-#ifdef CONFIG_SEC_DEBUG
-		sec_debug_store_additional_dbg(DBG_1_UFS_ERR, 0, "%s", buf);
-#endif
-	}
-	return;
-}
-
-/**
  * ufshcd_init - Driver initialization routine
  * @hba: per-adapter instance
  * @mmio_base: base register address
@@ -11418,10 +11362,6 @@ int ufshcd_init(struct ufs_hba *hba, void __iomem *mmio_base, unsigned int irq)
 		hba->spm_lvl = ufs_get_desired_pm_lvl_for_dev_link_state(
 							UFS_SLEEP_PWR_MODE,
 							UIC_LINK_HIBERN8_STATE);
-
-	/* init ufs_sec_debug function */
-	ufs_sec_send_errinfo(hba);
-	ufs_debug_func = ufs_sec_send_errinfo;
 
 	/* Hold auto suspend until async scan completes */
 	pm_runtime_get_sync(dev);

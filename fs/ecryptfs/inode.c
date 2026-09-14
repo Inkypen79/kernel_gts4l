@@ -36,34 +36,6 @@
 #include <asm/unaligned.h>
 #include "ecryptfs_kernel.h"
 
-/* Do not directly use this function. Use ECRYPTFS_OVERRIDE_CRED() instead. */
-const struct cred * ecryptfs_override_fsids(uid_t fsuid, gid_t fsgid)
-{
-	struct cred * cred; 
-	const struct cred * old_cred; 
-
-	cred = prepare_creds(); 
-	if (!cred) 
-		return NULL; 
-
-	cred->fsuid = make_kuid(current_user_ns(), fsuid);
-	cred->fsgid = make_kgid(current_user_ns(), fsgid);
-
-	old_cred = override_creds(cred); 
-
-	return old_cred; 
-}
-
-/* Do not directly use this function, use REVERT_CRED() instead. */
-void ecryptfs_revert_fsids(const struct cred * old_cred)
-{
-	const struct cred * cur_cred; 
-
-	cur_cred = current->cred; 
-	revert_creds(old_cred); 
-	put_cred(cur_cred); 
-}
-
 static struct dentry *lock_parent(struct dentry *dentry)
 {
 	struct dentry *dir;
@@ -271,44 +243,10 @@ int ecryptfs_initialize_file(struct dentry *ecryptfs_dentry,
 			ecryptfs_dentry, rc);
 		goto out;
 	}
-#ifdef CONFIG_WTL_ENCRYPTION_FILTER
-	mutex_lock(&crypt_stat->cs_mutex);
-	if (crypt_stat->flags & ECRYPTFS_ENCRYPTED) {
-		struct dentry *fp_dentry =
-			ecryptfs_inode_to_private(ecryptfs_inode)
-			->lower_file->f_path.dentry;
-		struct ecryptfs_mount_crypt_stat *mount_crypt_stat =
-			&ecryptfs_superblock_to_private(ecryptfs_dentry->d_sb)
-			->mount_crypt_stat;
-		char filename[NAME_MAX+1] = {0};
-		if (fp_dentry->d_name.len <= NAME_MAX)
-			memcpy(filename, fp_dentry->d_name.name,
-					fp_dentry->d_name.len + 1);
-
-		if ((mount_crypt_stat->flags & ECRYPTFS_ENABLE_NEW_PASSTHROUGH)
-		|| ((mount_crypt_stat->flags & ECRYPTFS_ENABLE_FILTERING) &&
-			(is_file_name_match(mount_crypt_stat, fp_dentry) ||
-			is_file_ext_match(mount_crypt_stat, filename)))) {
-			crypt_stat->flags &= ~(ECRYPTFS_I_SIZE_INITIALIZED
-				| ECRYPTFS_ENCRYPTED);
-			ecryptfs_put_lower_file(ecryptfs_inode);
-		} else {
-			rc = ecryptfs_write_metadata(ecryptfs_dentry,
-				 ecryptfs_inode);
-			if (rc)
-				printk(
-				KERN_ERR "Error writing headers; rc = [%d]\n"
-				    , rc);
-			ecryptfs_put_lower_file(ecryptfs_inode);
-		}
-	}
-	mutex_unlock(&crypt_stat->cs_mutex);
-#else
 	rc = ecryptfs_write_metadata(ecryptfs_dentry, ecryptfs_inode);
 	if (rc)
 		printk(KERN_ERR "Error writing headers; rc = [%d]\n", rc);
 	ecryptfs_put_lower_file(ecryptfs_inode);
-#endif
 out:
 	return rc;
 }
@@ -1166,7 +1104,6 @@ static int ecryptfs_removexattr(struct dentry *dentry, const char *name)
 		rc = -EOPNOTSUPP;
 		goto out;
 	}
-
 	mutex_lock(&d_inode(lower_dentry)->i_mutex);
 	rc = d_inode(lower_dentry)->i_op->removexattr(lower_dentry, name);
 	mutex_unlock(&d_inode(lower_dentry)->i_mutex);
@@ -1199,7 +1136,6 @@ const struct inode_operations ecryptfs_dir_iops = {
 	.rename = ecryptfs_rename,
 	.permission = ecryptfs_permission,
 	.setattr = ecryptfs_setattr,
-	.getattr = ecryptfs_getattr,
 	.setxattr = ecryptfs_setxattr,
 	.getxattr = ecryptfs_getxattr,
 	.listxattr = ecryptfs_listxattr,

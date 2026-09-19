@@ -61,7 +61,7 @@ jiffies = jiffies_64;
 #define TRAMP_TEXT					\
 	. = ALIGN(PAGE_SIZE);				\
 	VMLINUX_SYMBOL(__entry_tramp_text_start) = .;	\
-	*(.entry.tramp.text)				\
+	KEEP(*(.entry.tramp.text))			\
 	. = ALIGN(PAGE_SIZE);				\
 	VMLINUX_SYMBOL(__entry_tramp_text_end) = .;
 #else
@@ -115,7 +115,8 @@ SECTIONS
 		*(.discard)
 		*(.discard.*)
 		*(.interp .dynamic)
-		*(.dynsym .dynstr .hash)
+		*(.dynsym .dynstr .hash .gnu.hash)
+		*(.eh_frame)
 	}
 
 	. = KIMAGE_VADDR + TEXT_OFFSET;
@@ -146,11 +147,11 @@ SECTIONS
 		*(.got)			/* Global offset table		*/
 	}
 
-	EXCEPTION_TABLE(8)		/* __init_begin will be marked RO NX */
 	. = ALIGN(SEGMENT_ALIGN);
 	_etext = .;			/* End of text section */
 
 	RO_DATA(PAGE_SIZE)		/* everything from this point to     */
+	EXCEPTION_TABLE(8)		/* __init_begin will be marked RO NX */
 	NOTES
 
 	. = ALIGN(SEGMENT_ALIGN);
@@ -178,30 +179,18 @@ SECTIONS
 	. = ALIGN(4);
 	.altinstructions : {
 		__alt_instructions = .;
-		*(.altinstructions)
+		KEEP(*(.altinstructions))
 		__alt_instructions_end = .;
 	}
 	.altinstr_replacement : {
-		*(.altinstr_replacement)
+		KEEP(*(.altinstr_replacement))
 	}
-	.rela : ALIGN(8) {
-		__reloc_start = .;
+	.rela.dyn : ALIGN(8) {
 		*(.rela .rela*)
-		__reloc_end = .;
-	}
-	.dynsym : ALIGN(8) {
-		__dynsym_start = .;
-		*(.dynsym)
-	}
-	.dynstr : {
-		*(.dynstr)
-	}
-	.hash : {
-		*(.hash)
 	}
 
-	__rela_offset	= ABSOLUTE(ADDR(.rela) - KIMAGE_VADDR);
-	__rela_size	= SIZEOF(.rela);
+	__rela_offset	= ABSOLUTE(ADDR(.rela.dyn) - KIMAGE_VADDR);
+	__rela_size	= SIZEOF(.rela.dyn);
 
 	. = ALIGN(SEGMENT_ALIGN);
 	__init_end = .;
@@ -238,14 +227,17 @@ SECTIONS
 	. += IDMAP_DIR_SIZE;
 	swapper_pg_dir = .;
 	. += SWAPPER_DIR_SIZE;
+
 #ifdef CONFIG_ARM64_SW_TTBR0_PAN
 	reserved_ttbr0 = .;
 	. += RESERVED_TTBR0_SIZE;
 #endif
+
 #ifdef CONFIG_UNMAP_KERNEL_AT_EL0
 	tramp_pg_dir = .;
 	. += PAGE_SIZE;
 #endif
+
 	_end = .;
 
 	STABS_DEBUG

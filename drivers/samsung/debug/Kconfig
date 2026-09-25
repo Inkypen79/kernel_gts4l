@@ -203,14 +203,6 @@ config SEC_DEBUG_DOUBLE_FREE
 	 circular buffer is searched. Panic is be called when
 	 the match is found.
 
-config SEC_FILE_LEAK_DEBUG
-	bool "Samsung File Leak Debugging Feature (DEPRECATED)"
-	default n
-	help
-	  Samsung File Leak Debugging Feature for Debug use.
-	  Enables the forced panic mode when EMFILE Eror occurs.
-	  This feature is enabled in defconfig.
-
 config KERNEL_MODE_NEON_DEBUG
 	bool "Check the wrong usage of SIMD registers"
 	default n

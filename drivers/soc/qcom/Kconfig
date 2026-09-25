@@ -1054,14 +1054,6 @@ config SEC_DEBUG_SEMAPHORE_LOG
 	  Enables logging.
 	  This feature is enabled in defconfig.
 
-config SEC_FILE_LEAK_DEBUG
-	bool "Samsung File Leak Debugging Feature"
-	default n
-	help
-	  Samsung File Leak Debugging Feature for Debug use.
-	  Enables the forced panic mode when EMFILE Eror occurs.
-	  This feature is enabled in defconfig.
-
 config SEC_LOGGER_BUFFER_EXPANSION
 	bool "Samsung Logger Buffer Expansion Feature"
 	default n

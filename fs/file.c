@@ -35,9 +35,6 @@ int sysctl_nr_open_min = BITS_PER_LONG;
 int sysctl_nr_open_max = __const_max(INT_MAX, ~(size_t)0/sizeof(void *)) &
 			 -BITS_PER_LONG;
 
-#if defined(CONFIG_SEC_FILE_LEAK_DEBUG) && !defined(CONFIG_SAMSUNG_PRODUCT_SHIP)
-extern void	sec_debug_EMFILE_error_proc(unsigned long files_addr);
-#endif
 static void *alloc_fdmem(size_t size)
 {
 	/*
@@ -193,9 +190,6 @@ static int expand_fdtable(struct files_struct *files, int nr)
 	 * caller and alloc_fdtable().  Cheaper to catch it here...
 	 */
 	if (unlikely(new_fdt->max_fds <= nr)) {
-#if defined(CONFIG_SEC_FILE_LEAK_DEBUG) && !defined(CONFIG_SAMSUNG_PRODUCT_SHIP)
-		sec_debug_EMFILE_error_proc((unsigned long)files);
-#endif
 		__free_fdtable(new_fdt);
 		return -EMFILE;
 	}
@@ -234,9 +228,6 @@ repeat:
 
 	/* Can we expand? */
 	if (nr >= sysctl_nr_open) {
-#if defined(CONFIG_SEC_FILE_LEAK_DEBUG) && !defined(CONFIG_SAMSUNG_PRODUCT_SHIP)
-		sec_debug_EMFILE_error_proc((unsigned long)files);
-#endif
 		return -EMFILE;
 	}
 
@@ -347,9 +338,6 @@ struct files_struct *dup_fd(struct files_struct *oldf, int *errorp)
 
 		/* beyond sysctl_nr_open; nothing to do */
 		if (unlikely(new_fdt->max_fds < open_files)) {
-#if defined(CONFIG_SEC_FILE_LEAK_DEBUG) && !defined(CONFIG_SAMSUNG_PRODUCT_SHIP)
-			sec_debug_EMFILE_error_proc((unsigned long)oldf);
-#endif
 			__free_fdtable(new_fdt);
 			*errorp = -EMFILE;
 			goto out_release;
@@ -535,9 +523,6 @@ repeat:
 	 */
 	error = -EMFILE;
 	if (fd >= end) {
-#if defined(CONFIG_SEC_FILE_LEAK_DEBUG) && !defined(CONFIG_SAMSUNG_PRODUCT_SHIP)
-		sec_debug_EMFILE_error_proc((unsigned long)files);
-#endif
 		goto out;
 	}
 
@@ -926,9 +911,6 @@ SYSCALL_DEFINE3(dup3, unsigned int, oldfd, unsigned int, newfd, int, flags)
 		return -EINVAL;
 
 	if (newfd >= rlimit(RLIMIT_NOFILE)) {
-#if defined(CONFIG_SEC_FILE_LEAK_DEBUG) && !defined(CONFIG_SAMSUNG_PRODUCT_SHIP)
- 		sec_debug_EMFILE_error_proc((unsigned long)files);
-#endif
 		return -EBADF;
 	}
 

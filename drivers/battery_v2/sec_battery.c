@@ -6184,7 +6184,7 @@ ssize_t sec_bat_store_attrs(
 						&temp_data[72], &temp_data[73], &temp_data[74],
 						&temp_data[75], &temp_data[76]) <= CISD_DATA_MAX_PER_DAY) {
 					for (i = 0; i < CISD_DATA_MAX_PER_DAY; i++)
-						pcisd->data[i] = 0;
+							pcisd->data[i] = 0;
 						pcisd->data[CISD_DATA_ALG_INDEX] = battery->pdata->cisd_alg_index;
 						pcisd->data[CISD_DATA_FULL_COUNT] = temp_data[0];
 						pcisd->data[CISD_DATA_CAP_MAX] = temp_data[1];

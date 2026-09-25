@@ -68,17 +68,17 @@ static ssize_t barcode_emul_store(struct device *dev,
 	if (buf[0] == 0xFF && buf[1] != 0) {
 		if (is_beaming)
 			return size;
-			is_beaming = 1;
-			cmd = NETLINK_MESSAGE_MOBEAM_START;
-			message.msg_size = 1;
-			memcpy(message.msg, &buf[1], message.msg_size);
+		is_beaming = 1;
+		cmd = NETLINK_MESSAGE_MOBEAM_START;
+		message.msg_size = 1;
+		memcpy(message.msg, &buf[1], message.msg_size);
 	} else if (buf[0] == 0xFF && buf[1] == 0) {
 		if (is_beaming == 0)
 			return size;
-			is_beaming = 0;
-			cmd = NETLINK_MESSAGE_MOBEAM_STOP;
-			message.msg_size = 1;
-			memcpy(message.msg, &buf[1], message.msg_size);
+		is_beaming = 0;
+		cmd = NETLINK_MESSAGE_MOBEAM_STOP;
+		message.msg_size = 1;
+		memcpy(message.msg, &buf[1], message.msg_size);
 	} else if (buf[0] == 0x00) {
 		cmd = NETLINK_MESSAGE_MOBEAM_SEND_DATA;
 		message.msg_size = 128;

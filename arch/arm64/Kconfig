@@ -1670,10 +1670,6 @@ config DRV_SAMSUNG
 	  Provide option of enabling sec class
 	  Supports sec drivers key, touch, sec_debug etc
 
-config LOD_SEC
-	bool "kernel security re-enforcement for Linux On Dex, including cap re-check and seccomp report"
-	default n
-
 config RELOCATABLE_KERNEL 
 	bool "set kernel to relocatable in both virtual and physical address"
 	default n

@@ -39,10 +39,6 @@
 #include <linux/magic.h>
 #include "ecryptfs_kernel.h"
 
-#ifdef CONFIG_WTL_ENCRYPTION_FILTER
-#include <linux/ctype.h>
-#endif
-
 /**
  * Module parameter that defines the ecryptfs_verbosity level.
  */
@@ -182,13 +178,13 @@ void ecryptfs_put_lower_file(struct inode *inode)
 		fput(inode_info->lower_file);
 		inode_info->lower_file = NULL;
 		mutex_unlock(&inode_info->lower_file_mutex);
-#if 0
+
 		if (clear_cache_needed) {
 			truncate_inode_pages_fill_zero(inode->i_mapping, 0);
 			truncate_inode_pages_fill_zero(
 				ecryptfs_inode_to_lower(inode)->i_mapping, 0);
 		}
-#endif
+
 		if (get_events() && get_events()->release_cb)
 			get_events()->release_cb(
 			ecryptfs_inode_to_lower(inode));
@@ -205,13 +201,6 @@ enum { ecryptfs_opt_sig, ecryptfs_opt_ecryptfs_sig,
        ecryptfs_opt_fn_cipher, ecryptfs_opt_fn_cipher_key_bytes,
        ecryptfs_opt_unlink_sigs, ecryptfs_opt_mount_auth_tok_only,
        ecryptfs_opt_check_dev_ruid,
-#ifdef CONFIG_WTL_ENCRYPTION_FILTER
-       ecryptfs_opt_enable_filtering,
-#endif
-#ifdef CONFIG_CRYPTO_FIPS
-       ecryptfs_opt_enable_cc,
-#endif
-       ecryptfs_opt_base, ecryptfs_opt_type, ecryptfs_opt_label,
        ecryptfs_opt_err };
 
 static const match_table_t tokens = {
@@ -229,15 +218,6 @@ static const match_table_t tokens = {
 	{ecryptfs_opt_unlink_sigs, "ecryptfs_unlink_sigs"},
 	{ecryptfs_opt_mount_auth_tok_only, "ecryptfs_mount_auth_tok_only"},
 	{ecryptfs_opt_check_dev_ruid, "ecryptfs_check_dev_ruid"},
-#ifdef CONFIG_WTL_ENCRYPTION_FILTER
-	{ecryptfs_opt_enable_filtering, "ecryptfs_enable_filtering=%s"},
-#endif
-#ifdef CONFIG_CRYPTO_FIPS
-	{ecryptfs_opt_enable_cc, "ecryptfs_enable_cc"},
-#endif
-	{ecryptfs_opt_base, "base=%s"},
-	{ecryptfs_opt_type, "type=%s"},
-	{ecryptfs_opt_label, "label=%s"},
 	{ecryptfs_opt_err, NULL}
 };
 
@@ -279,64 +259,6 @@ static void ecryptfs_init_mount_crypt_stat(
 	mount_crypt_stat->flags |= ECRYPTFS_MOUNT_CRYPT_STAT_INITIALIZED;
 }
 
-static void ecryptfs_init_propagate_stat(
-	struct ecryptfs_propagate_stat *propagate_stat)
-{
-	memset((void *)propagate_stat, 0,
-			sizeof(struct ecryptfs_propagate_stat));
-	propagate_stat->propagate_type = TYPE_E_NONE;
-}
-
-#ifdef CONFIG_WTL_ENCRYPTION_FILTER
-static int parse_enc_file_filter_parms(
-	struct ecryptfs_mount_crypt_stat *mcs, char *str)
-{
-	char *token = NULL;
-	int count = 0;
-	mcs->max_name_filter_len = 0;
-	while ((token = strsep(&str, "|")) != NULL) {
-		if (count >= ENC_NAME_FILTER_MAX_INSTANCE)
-			return -1;
-		strncpy(mcs->enc_filter_name[count++],
-			token, ENC_NAME_FILTER_MAX_LEN);
-		if (mcs->max_name_filter_len < strlen(token))
-			mcs->max_name_filter_len = strlen(token);
-	}
-	return 0;
-}
-
-static int parse_enc_ext_filter_parms(
-	struct ecryptfs_mount_crypt_stat *mcs, char *str)
-{
-	char *token = NULL;
-	int count = 0;
-	while ((token = strsep(&str, "|")) != NULL) {
-		if (count >= ENC_EXT_FILTER_MAX_INSTANCE)
-			return -1;
-		strncpy(mcs->enc_filter_ext[count++],
-			token, ENC_EXT_FILTER_MAX_LEN);
-	}
-	return 0;
-}
-
-static int parse_enc_filter_parms(
-	struct ecryptfs_mount_crypt_stat *mcs, char *str)
-{
-	char *token = NULL;
-	if (!strcmp("*", str)) {
-		mcs->flags |= ECRYPTFS_ENABLE_NEW_PASSTHROUGH;
-		return 0;
-	}
-	token = strsep(&str, ":");
-	if (token != NULL)
-		parse_enc_file_filter_parms(mcs, token);
-	token = strsep(&str, ":");
-	if (token != NULL)
-		parse_enc_ext_filter_parms(mcs, token);
-	return 0;
-}
-#endif
-
 /**
  * ecryptfs_parse_options
  * @sb: The ecryptfs super block
@@ -371,8 +293,6 @@ static int ecryptfs_parse_options(struct ecryptfs_sb_info *sbi, char *options,
 	int fn_cipher_key_bytes_set = 0;
 	struct ecryptfs_mount_crypt_stat *mount_crypt_stat =
 		&sbi->mount_crypt_stat;
-	struct ecryptfs_propagate_stat *propagate_stat =
-		&sbi->propagate_stat;
 	substring_t args[MAX_OPT_ARGS];
 	int token;
 	char *sig_src;
@@ -384,16 +304,8 @@ static int ecryptfs_parse_options(struct ecryptfs_sb_info *sbi, char *options,
 	char *fnek_src;
 	char *cipher_key_bytes_src;
 	char *fn_cipher_key_bytes_src;
-	char *base_path_src;
-	char *base_path_dst;
-	char *propagate_type;
-	char *label_src;
-	char *label_dst;
 	u8 cipher_code;
 	unsigned char final[2*ECRYPTFS_MAX_CIPHER_NAME_SIZE+1];
-#ifdef CONFIG_CRYPTO_FIPS
-	char cipher_mode[ECRYPTFS_MAX_CIPHER_MODE_SIZE+1] = ECRYPTFS_AES_ECB_MODE;
-#endif
 
 	*check_ruid = 0;
 
@@ -402,7 +314,6 @@ static int ecryptfs_parse_options(struct ecryptfs_sb_info *sbi, char *options,
 		goto out;
 	}
 	ecryptfs_init_mount_crypt_stat(mount_crypt_stat);
-	ecryptfs_init_propagate_stat(propagate_stat);
 	while ((p = strsep(&options, ",")) != NULL) {
 		if (!*p)
 			continue;
@@ -507,53 +418,6 @@ static int ecryptfs_parse_options(struct ecryptfs_sb_info *sbi, char *options,
 		case ecryptfs_opt_check_dev_ruid:
 			*check_ruid = 1;
 			break;
-#ifdef CONFIG_WTL_ENCRYPTION_FILTER
-		case ecryptfs_opt_enable_filtering:
-			rc = parse_enc_filter_parms(mount_crypt_stat,
-							 args[0].from);
-			if (rc) {
-				printk(KERN_ERR "Error attempting to parse encryption "
-							"filtering parameters.\n");
-				rc = -EINVAL;
-				goto out;
-			}
-			mount_crypt_stat->flags |= ECRYPTFS_ENABLE_FILTERING;
-			break;
-#endif
-#ifdef CONFIG_CRYPTO_FIPS
-		case ecryptfs_opt_enable_cc:
-			mount_crypt_stat->flags |= ECRYPTFS_ENABLE_CC;
-			strncpy(cipher_mode, ECRYPTFS_AES_CBC_MODE, ECRYPTFS_MAX_CIPHER_MODE_SIZE+1);
-			break;
-#endif
-		case ecryptfs_opt_base:
-			base_path_src = args[0].from;
-			base_path_dst = propagate_stat->base_path;
-			strncpy(base_path_dst, base_path_src, ECRYPTFS_BASE_PATH_SIZE);
-			break;
-		case ecryptfs_opt_type:
-			propagate_type = match_strdup(&args[0]);
-			if (!propagate_type)
-				return -ENOMEM;
-			if (!strncmp(propagate_type, "default", strlen("default")))
-				propagate_stat->propagate_type = TYPE_E_DEFAULT;
-			else if (!strncmp(propagate_type, "read", strlen("read")))
-				propagate_stat->propagate_type = TYPE_E_READ;
-			else if (!strncmp(propagate_type, "write", strlen("write")))
-				propagate_stat->propagate_type = TYPE_E_WRITE;
-			else {
-				printk(KERN_WARNING
-					  "%s: eCryptfs: unrecognized option [type=%s]\n",
-					  __func__, propagate_type);
-				propagate_stat->propagate_type = TYPE_E_NONE;
-			}
-			kfree(propagate_type);
-			break;
-		case ecryptfs_opt_label:
-			label_src = args[0].from;
-			label_dst = propagate_stat->label;
-			strncpy(label_dst, label_src, ECRYPTFS_LABEL_SIZE);
-			break;
 		case ecryptfs_opt_err:
 		default:
 			printk(KERN_WARNING
@@ -609,48 +473,6 @@ static int ecryptfs_parse_options(struct ecryptfs_sb_info *sbi, char *options,
 	}
 
 	mutex_lock(&key_tfm_list_mutex);
-#ifdef CONFIG_CRYPTO_FIPS
-	if (!ecryptfs_tfm_exists(mount_crypt_stat->global_default_cipher_name, cipher_mode,
-			NULL)) {
-
-		rc = ecryptfs_add_new_key_tfm(
-			NULL, mount_crypt_stat->global_default_cipher_name,
-			mount_crypt_stat->global_default_cipher_key_size,
-			mount_crypt_stat->flags);
-		if (rc) {
-			printk(KERN_ERR "Error attempting to initialize "
-			       "cipher with name = [%s] and key size = [%td]; "
-			       "rc = [%d]\n",
-			       mount_crypt_stat->global_default_cipher_name,
-			       mount_crypt_stat->global_default_cipher_key_size,
-			       rc);
-			rc = -EINVAL;
-			mutex_unlock(&key_tfm_list_mutex);
-			goto out;
-		}
-	}
-
-	if ((mount_crypt_stat->flags & ECRYPTFS_GLOBAL_ENCRYPT_FILENAMES)
-		&& !ecryptfs_tfm_exists(
-			mount_crypt_stat->global_default_fn_cipher_name, cipher_mode, NULL)) {
-		rc = ecryptfs_add_new_key_tfm(
-			NULL, mount_crypt_stat->global_default_fn_cipher_name,
-			mount_crypt_stat->global_default_fn_cipher_key_bytes,
-			mount_crypt_stat->flags);
-
-		if (rc) {
-			printk(KERN_ERR "Error attempting to initialize "
-				   "cipher with name = [%s] and key size = [%td]; "
-				   "rc = [%d]\n",
-				   mount_crypt_stat->global_default_fn_cipher_name,
-				   mount_crypt_stat->global_default_fn_cipher_key_bytes,
-				   rc);
-			rc = -EINVAL;
-			mutex_unlock(&key_tfm_list_mutex);
-			goto out;
-		}
-	}
-#else
 	if (!ecryptfs_tfm_exists(mount_crypt_stat->global_default_cipher_name,
 				 NULL)) {
 		rc = ecryptfs_add_new_key_tfm(
@@ -686,7 +508,6 @@ static int ecryptfs_parse_options(struct ecryptfs_sb_info *sbi, char *options,
 			goto out;
 		}
 	}
-#endif
 	mutex_unlock(&key_tfm_list_mutex);
 	rc = ecryptfs_init_global_auth_toks(mount_crypt_stat);
 	if (rc)
@@ -710,7 +531,7 @@ static struct file_system_type ecryptfs_fs_type;
 static struct dentry *ecryptfs_mount(struct file_system_type *fs_type, int flags,
 			const char *dev_name, void *raw_data)
 {
-	struct super_block *s, *lower_sb;
+	struct super_block *s;
 	struct ecryptfs_sb_info *sbi;
 	struct ecryptfs_mount_crypt_stat *mount_crypt_stat;
 	struct ecryptfs_dentry_info *root_info;
@@ -746,12 +567,9 @@ static struct dentry *ecryptfs_mount(struct file_system_type *fs_type, int flags
 	ecryptfs_set_superblock_private(s, sbi);
 	s->s_bdi = &sbi->bdi;
 
-	if (sbi->propagate_stat.propagate_type != TYPE_E_NONE)
-	s->s_op = &ecryptfs_multimount_sops;
-	else
-	s->s_op = &ecryptfs_sops;
 	/* ->kill_sb() will take care of sbi after that point */
 	sbi = NULL;
+	s->s_op = &ecryptfs_sops;
 	s->s_d_op = &ecryptfs_dops;
 
 	err = "Reading sb failed";
@@ -777,8 +595,6 @@ static struct dentry *ecryptfs_mount(struct file_system_type *fs_type, int flags
 		goto out_free;
 	}
 
-	lower_sb = path.dentry->d_sb;
-	atomic_inc(&lower_sb->s_active);
 	ecryptfs_set_superblock_lower(s, path.dentry->d_sb);
 
 
@@ -816,18 +632,18 @@ static struct dentry *ecryptfs_mount(struct file_system_type *fs_type, int flags
 	inode = ecryptfs_get_inode(d_inode(path.dentry), s);
 	rc = PTR_ERR(inode);
 	if (IS_ERR(inode))
-		goto out_sput;
+		goto out_free;
 
 	s->s_root = d_make_root(inode);
 	if (!s->s_root) {
 		rc = -ENOMEM;
-		goto out_sput;
+		goto out_free;
 	}
 
 	rc = -ENOMEM;
 	root_info = kmem_cache_zalloc(ecryptfs_dentry_info_cache, GFP_KERNEL);
 	if (!root_info)
-		goto out_sput;
+		goto out_free;
 
 	/* ->kill_sb() will take care of root_info */
 	ecryptfs_set_dentry_private(s->s_root, root_info);
@@ -836,8 +652,6 @@ static struct dentry *ecryptfs_mount(struct file_system_type *fs_type, int flags
 	s->s_flags |= MS_ACTIVE;
 	return dget(s->s_root);
 
-out_sput:
-	atomic_dec(&lower_sb->s_active);
 out_free:
 	path_put(&path);
 out1:
@@ -863,9 +677,6 @@ static void ecryptfs_kill_block_super(struct super_block *sb)
 	kill_anon_super(sb);
 	if (!sb_info)
 		return;
-	if (sb_info->wsi_sb)
-		atomic_dec(&sb_info->wsi_sb->s_active);
-
 	ecryptfs_destroy_mount_crypt_stat(&sb_info->mount_crypt_stat);
 	bdi_destroy(&sb_info->bdi);
 	kmem_cache_free(ecryptfs_sb_info_cache, sb_info);

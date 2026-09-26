@@ -17,7 +17,7 @@
 #endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,31) */
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4, 5, 0)
-	#define NETIF_F_CSUM_MASK			NETIF_F_ALL_CSUM
+	//#define NETIF_F_CSUM_MASK			NETIF_F_ALL_CSUM
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4, 0, 0)
 	#define skb_vlan_tag_present(__skb)		vlan_tx_tag_present(__skb)
 	#define skb_vlan_tag_get(__skb)			vlan_tx_tag_get(__skb)

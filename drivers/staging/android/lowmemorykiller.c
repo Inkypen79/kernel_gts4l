@@ -299,51 +299,6 @@ static int test_task_state(struct task_struct *p, int state)
 
 static DEFINE_MUTEX(scan_mutex);
 
-static void show_memory(void)
-{
-#define K(x) ((x) << (PAGE_SHIFT - 10))
-	printk("Mem-Info:"
-		" totalram_pages:%lukB"
-		" free:%lukB"
-		" active_anon:%lukB"
-		" inactive_anon:%lukB"
-		" active_file:%lukB"
-		" inactive_file:%lukB"
-		" unevictable:%lukB"
-		" isolated(anon):%lukB"
-		" isolated(file):%lukB"
-		" dirty:%lukB"
-		" writeback:%lukB"
-		" mapped:%lukB"
-		" shmem:%lukB"
-		" slab_reclaimable:%lukB"
-		" slab_unreclaimable:%lukB"
-		" kernel_stack:%lukB"
-		" pagetables:%lukB"
-		" free_cma:%lukB"
-		"\n",
-		K(totalram_pages),
-		K(global_page_state(NR_FREE_PAGES)),
-		K(global_page_state(NR_ACTIVE_ANON)),
-		K(global_page_state(NR_INACTIVE_ANON)),
-		K(global_page_state(NR_ACTIVE_FILE)),
-		K(global_page_state(NR_INACTIVE_FILE)),
-		K(global_page_state(NR_UNEVICTABLE)),
-		K(global_page_state(NR_ISOLATED_ANON)),
-		K(global_page_state(NR_ISOLATED_FILE)),
-		K(global_page_state(NR_FILE_DIRTY)),
-		K(global_page_state(NR_WRITEBACK)),
-		K(global_page_state(NR_FILE_MAPPED)),
-		K(global_page_state(NR_SHMEM)),
-		K(global_page_state(NR_SLAB_RECLAIMABLE)),
-		K(global_page_state(NR_SLAB_UNRECLAIMABLE)),
-		global_page_state(NR_KERNEL_STACK) * THREAD_SIZE / 1024,
-		K(global_page_state(NR_PAGETABLE)),
-		K(global_page_state(NR_FREE_CMA_PAGES))
-		);
-#undef K
-}
-
 #if defined(CONFIG_ZSWAP)
 extern u64 zswap_pool_pages;
 extern atomic_t zswap_stored_pages;
@@ -589,7 +544,6 @@ static unsigned long lowmem_scan(struct shrinker *s, struct shrink_control *sc)
 
 		if (__ratelimit(&lmk_rs)) {
 			show_mem_extra_call_notifiers();
-			show_memory();
 		}
 
 		if (lowmem_debug_level >= 2 && selected_oom_score_adj == 0) {

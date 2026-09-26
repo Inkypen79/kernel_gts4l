@@ -650,7 +650,7 @@ struct b43_iv {
 	union {
 		__be16 d16;
 		__be32 d32;
-	} data __packed;
+	} __packed data;
 } __packed;
 
 
@@ -992,9 +992,9 @@ static inline int b43_is_mode(struct b43_wl *wl, int type)
 
 /**
  * b43_current_band - Returns the currently used band.
- * Returns one of IEEE80211_BAND_2GHZ and IEEE80211_BAND_5GHZ.
+ * Returns one of NL80211_BAND_2GHZ and NL80211_BAND_5GHZ.
  */
-static inline enum ieee80211_band b43_current_band(struct b43_wl *wl)
+static inline enum nl80211_band b43_current_band(struct b43_wl *wl)
 {
 	return wl->hw->conf.chandef.chan->band;
 }
@@ -1079,6 +1079,22 @@ static inline void b43_block_write(struct b43_wldev *dev, const void *buffer,
 static inline bool b43_using_pio_transfers(struct b43_wldev *dev)
 {
 	return dev->__using_pio_transfers;
+}
+
+static inline void b43_wake_queue(struct b43_wldev *dev, int queue_prio)
+{
+	if (dev->qos_enabled)
+		ieee80211_wake_queue(dev->wl->hw, queue_prio);
+	else
+		ieee80211_wake_queue(dev->wl->hw, 0);
+}
+
+static inline void b43_stop_queue(struct b43_wldev *dev, int queue_prio)
+{
+	if (dev->qos_enabled)
+		ieee80211_stop_queue(dev->wl->hw, queue_prio);
+	else
+		ieee80211_stop_queue(dev->wl->hw, 0);
 }
 
 /* Message printing */

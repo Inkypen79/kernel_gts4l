@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017,2019-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -172,20 +172,20 @@ static int hdmi_hdcp2p2_wakeup(struct hdmi_hdcp_wakeup_data *data)
 
 	switch (ctrl->wakeup_cmd) {
 	case HDMI_HDCP_WKUP_CMD_SEND_MESSAGE:
-		queue_kthread_work(&ctrl->worker, &ctrl->send_msg);
+		kthread_queue_work(&ctrl->worker, &ctrl->send_msg);
 		break;
 	case HDMI_HDCP_WKUP_CMD_RECV_MESSAGE:
-		queue_kthread_work(&ctrl->worker, &ctrl->recv_msg);
+		kthread_queue_work(&ctrl->worker, &ctrl->recv_msg);
 		break;
 	case HDMI_HDCP_WKUP_CMD_STATUS_SUCCESS:
 	case HDMI_HDCP_WKUP_CMD_STATUS_FAILED:
-		queue_kthread_work(&ctrl->worker, &ctrl->status);
+		kthread_queue_work(&ctrl->worker, &ctrl->status);
 		break;
 	case HDMI_HDCP_WKUP_CMD_LINK_POLL:
-		queue_kthread_work(&ctrl->worker, &ctrl->poll);
+		kthread_queue_work(&ctrl->worker, &ctrl->poll);
 		break;
 	case HDMI_HDCP_WKUP_CMD_AUTHENTICATE:
-		queue_kthread_work(&ctrl->worker, &ctrl->auth);
+		kthread_queue_work(&ctrl->worker, &ctrl->auth);
 		break;
 	default:
 		pr_err("invalid wakeup command %d\n", ctrl->wakeup_cmd);
@@ -287,7 +287,7 @@ static void hdmi_hdcp2p2_off(void *input)
 
 	hdmi_hdcp2p2_reset(ctrl);
 
-	flush_kthread_worker(&ctrl->worker);
+	kthread_flush_worker(&ctrl->worker);
 
 	hdmi_hdcp2p2_ddc_disable(ctrl->init_data.ddc_ctrl);
 
@@ -312,7 +312,7 @@ static int hdmi_hdcp2p2_authenticate(void *input)
 
 	DSS_REG_W(ctrl->init_data.core_io, HDMI_HDCP_INT_CTRL2, regval);
 
-	flush_kthread_worker(&ctrl->worker);
+	kthread_flush_worker(&ctrl->worker);
 
 	ctrl->sink_status = SINK_CONNECTED;
 	atomic_set(&ctrl->auth_state, HDCP_STATE_AUTHENTICATING);
@@ -393,31 +393,22 @@ exit:
 	return count;
 }
 
-static ssize_t hdmi_hdcp2p2_sysfs_wta_min_level_change(struct device *dev,
-	struct device_attribute *attr, const char *buf, size_t count)
+static void mdss_hdmi_hdcp2p2_min_level_change(void *client_ctx,
+		int min_enc_level)
 {
 	struct hdmi_hdcp2p2_ctrl *ctrl =
-		hdmi_get_featuredata_from_sysfs_dev(dev, HDMI_TX_FEAT_HDCP2P2);
+		(struct hdmi_hdcp2p2_ctrl *)client_ctx;
 	struct hdcp_lib_wakeup_data cdata = {
 		HDCP_LIB_WKUP_CMD_QUERY_STREAM_TYPE};
 	bool enc_notify = true;
 	enum hdcp_states enc_lvl;
-	int min_enc_lvl;
-	int rc;
 
 	if (!ctrl) {
 		pr_err("invalid input\n");
-		rc = -EINVAL;
-		goto exit;
+		return;
 	}
 
-	rc = kstrtoint(buf, 10, &min_enc_lvl);
-	if (rc) {
-		DEV_ERR("%s: kstrtoint failed. rc=%d\n", __func__, rc);
-		goto exit;
-	}
-
-	switch (min_enc_lvl) {
+	switch (min_enc_level) {
 	case 0:
 		enc_lvl = HDCP_STATE_AUTH_ENC_NONE;
 		break;
@@ -431,7 +422,7 @@ static ssize_t hdmi_hdcp2p2_sysfs_wta_min_level_change(struct device *dev,
 		enc_notify = false;
 	}
 
-	pr_debug("enc level changed %d\n", min_enc_lvl);
+	pr_debug("enc level changed %d\n", min_enc_level);
 
 	cdata.context = ctrl->lib_ctx;
 	hdmi_hdcp2p2_wakeup_lib(ctrl, &cdata);
@@ -441,10 +432,6 @@ static ssize_t hdmi_hdcp2p2_sysfs_wta_min_level_change(struct device *dev,
 
 	if (enc_notify && ctrl->init_data.notify_status)
 		ctrl->init_data.notify_status(ctrl->init_data.cb_data, enc_lvl);
-
-	rc = count;
-exit:
-	return  rc;
 }
 
 static void hdmi_hdcp2p2_auth_failed(struct hdmi_hdcp2p2_ctrl *ctrl)
@@ -584,13 +571,10 @@ static int hdmi_hdcp2p2_read_version(struct hdmi_hdcp2p2_ctrl *ctrl,
 	return rc;
 }
 
-static DEVICE_ATTR(min_level_change, S_IWUSR, NULL,
-		hdmi_hdcp2p2_sysfs_wta_min_level_change);
 static DEVICE_ATTR(tethered, S_IRUGO | S_IWUSR, hdmi_hdcp2p2_sysfs_rda_tethered,
 		hdmi_hdcp2p2_sysfs_wta_tethered);
 
 static struct attribute *hdmi_hdcp2p2_fs_attrs[] = {
-	&dev_attr_min_level_change.attr,
 	&dev_attr_tethered.attr,
 	NULL,
 };
@@ -696,7 +680,7 @@ static void hdmi_hdcp2p2_link_cb(void *data)
 	}
 
 	if (atomic_read(&ctrl->auth_state) != HDCP_STATE_INACTIVE)
-		queue_kthread_work(&ctrl->worker, &ctrl->link);
+		kthread_queue_work(&ctrl->worker, &ctrl->link);
 }
 
 static void hdmi_hdcp2p2_recv_msg(struct hdmi_hdcp2p2_ctrl *ctrl)
@@ -753,6 +737,14 @@ static void hdmi_hdcp2p2_recv_msg(struct hdmi_hdcp2p2_ctrl *ctrl)
 	rc = hdmi_hdcp2p2_ddc_read_rxstatus(ddc_ctrl);
 	if (rc) {
 		pr_err("error reading rxstatus %d\n", rc);
+		goto exit;
+	}
+
+	if (ddc_data->ddc_max_retries_fail) {
+		pr_debug("rxstatus ddc failed\n");
+
+		ddc_data->ddc_max_retries_fail = false;
+		rc = -ENOLINK;
 		goto exit;
 	}
 
@@ -913,6 +905,15 @@ static void hdmi_hdcp2p2_link_work(struct kthread_work *work)
 
 	ddc_data = &ddc_ctrl->hdcp2p2_ddc_data;
 
+	if (ddc_data->ddc_max_retries_fail) {
+		pr_debug("rxstatus ddc failed\n");
+
+		ddc_data->ddc_max_retries_fail = false;
+		rc = -ENOLINK;
+		cdata.cmd = HDCP_LIB_WKUP_CMD_STOP;
+		goto exit;
+	}
+
 	if (ddc_data->reauth_req) {
 		pr_debug("reauth triggered by sink\n");
 
@@ -1030,6 +1031,7 @@ void *hdmi_hdcp2p2_init(struct hdcp_init_data *init_data)
 
 	static struct hdcp_client_ops client_ops = {
 		.wakeup = hdmi_hdcp2p2_wakeup,
+		.notify_lvl_change = mdss_hdmi_hdcp2p2_min_level_change,
 		.srm_cb = hdmi_hdcp2p2_srm_cb,
 	};
 
@@ -1087,14 +1089,14 @@ void *hdmi_hdcp2p2_init(struct hdcp_init_data *init_data)
 		goto error;
 	}
 
-	init_kthread_worker(&ctrl->worker);
+	kthread_init_worker(&ctrl->worker);
 
-	init_kthread_work(&ctrl->auth,     hdmi_hdcp2p2_auth_work);
-	init_kthread_work(&ctrl->send_msg, hdmi_hdcp2p2_send_msg_work);
-	init_kthread_work(&ctrl->recv_msg, hdmi_hdcp2p2_recv_msg_work);
-	init_kthread_work(&ctrl->status,   hdmi_hdcp2p2_auth_status_work);
-	init_kthread_work(&ctrl->link,     hdmi_hdcp2p2_link_work);
-	init_kthread_work(&ctrl->poll,     hdmi_hdcp2p2_poll_work);
+	kthread_init_work(&ctrl->auth,     hdmi_hdcp2p2_auth_work);
+	kthread_init_work(&ctrl->send_msg, hdmi_hdcp2p2_send_msg_work);
+	kthread_init_work(&ctrl->recv_msg, hdmi_hdcp2p2_recv_msg_work);
+	kthread_init_work(&ctrl->status,   hdmi_hdcp2p2_auth_status_work);
+	kthread_init_work(&ctrl->link,     hdmi_hdcp2p2_link_work);
+	kthread_init_work(&ctrl->poll,     hdmi_hdcp2p2_poll_work);
 
 	ctrl->thread = kthread_run(kthread_worker_fn,
 		&ctrl->worker, "hdmi_hdcp2p2");

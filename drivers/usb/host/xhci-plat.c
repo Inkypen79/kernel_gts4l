@@ -60,7 +60,10 @@ static int xhci_plat_setup(struct usb_hcd *hcd)
 	int ret;
 
 	if (of_device_is_compatible(of_node, "renesas,xhci-r8a7790") ||
-	    of_device_is_compatible(of_node, "renesas,xhci-r8a7791")) {
+	    of_device_is_compatible(of_node, "renesas,xhci-r8a7791") ||
+	    of_device_is_compatible(of_node, "renesas,xhci-r8a7742") ||
+	    of_device_is_compatible(of_node, "renesas,xhci-r8a7743") ||
+	    of_device_is_compatible(of_node, "renesas,xhci-r8a7744")) {
 		ret = xhci_rcar_init_quirk(hcd);
 		if (ret)
 			return ret;
@@ -74,7 +77,10 @@ static int xhci_plat_start(struct usb_hcd *hcd)
 	struct device_node *of_node = hcd->self.controller->of_node;
 
 	if (of_device_is_compatible(of_node, "renesas,xhci-r8a7790") ||
-	    of_device_is_compatible(of_node, "renesas,xhci-r8a7791"))
+	    of_device_is_compatible(of_node, "renesas,xhci-r8a7791") ||
+	    of_device_is_compatible(of_node, "renesas,xhci-r8a7742") ||
+	    of_device_is_compatible(of_node, "renesas,xhci-r8a7743") ||
+	    of_device_is_compatible(of_node, "renesas,xhci-r8a7744"))
 		xhci_rcar_start(hcd);
 
 	return xhci_run(hcd);
@@ -209,7 +215,7 @@ static int xhci_plat_probe(struct platform_device *pdev)
 	pm_runtime_set_autosuspend_delay(&pdev->dev, 1000);
 	pm_runtime_set_active(&pdev->dev);
 	pm_runtime_enable(&pdev->dev);
-	pm_runtime_get_sync(&pdev->dev);
+	pm_runtime_get_noresume(&pdev->dev);
 
 	if (of_device_is_compatible(pdev->dev.of_node,
 				    "marvell,armada-375-xhci") ||
@@ -220,7 +226,7 @@ static int xhci_plat_probe(struct platform_device *pdev)
 			goto disable_clk;
 	}
 
-	device_wakeup_enable(hcd->self.controller);
+	device_set_wakeup_capable(&pdev->dev, true);
 
 	xhci = hcd_to_xhci(hcd);
 	xhci->clk = clk;
@@ -255,7 +261,8 @@ static int xhci_plat_probe(struct platform_device *pdev)
 
 	device_wakeup_enable(&hcd->self.root_hub->dev);
 
-	if (HCC_MAX_PSA(xhci->hcc_params) >= 4)
+	if (HCC_MAX_PSA(xhci->hcc_params) >= 4 &&
+	    !(xhci->quirks & XHCI_BROKEN_STREAMS))
 		xhci->shared_hcd->can_do_streams = 1;
 
 	ret = usb_add_hcd(xhci->shared_hcd, irq, IRQF_SHARED);
@@ -298,6 +305,8 @@ put_usb3_hcd:
 	usb_put_hcd(xhci->shared_hcd);
 
 disable_clk:
+	pm_runtime_put_noidle(&pdev->dev);
+	pm_runtime_disable(&pdev->dev);
 	if (!IS_ERR(clk))
 		clk_disable_unprepare(clk);
 
@@ -325,8 +334,6 @@ static int xhci_plat_remove(struct platform_device *dev)
 	}
 #endif
 
-	pm_runtime_disable(&dev->dev);
-
 	device_remove_file(&dev->dev, &dev_attr_config_imod);
 	xhci->xhc_state |= XHCI_STATE_REMOVING;
 	usb_remove_hcd(xhci->shared_hcd);
@@ -338,6 +345,9 @@ static int xhci_plat_remove(struct platform_device *dev)
 	if (!IS_ERR(clk))
 		clk_disable_unprepare(clk);
 	usb_put_hcd(hcd);
+
+	pm_runtime_set_suspended(&dev->dev);
+	pm_runtime_disable(&dev->dev);
 
 	return 0;
 }
@@ -470,6 +480,9 @@ static const struct of_device_id usb_xhci_of_match[] = {
 	{ .compatible = "xhci-platform" },
 	{ .compatible = "marvell,armada-375-xhci"},
 	{ .compatible = "marvell,armada-380-xhci"},
+	{ .compatible = "renesas,xhci-r8a7742"},
+	{ .compatible = "renesas,xhci-r8a7743"},
+	{ .compatible = "renesas,xhci-r8a7744"},
 	{ .compatible = "renesas,xhci-r8a7790"},
 	{ .compatible = "renesas,xhci-r8a7791"},
 	{ },
@@ -487,6 +500,7 @@ MODULE_DEVICE_TABLE(acpi, usb_xhci_acpi_match);
 static struct platform_driver usb_xhci_driver = {
 	.probe	= xhci_plat_probe,
 	.remove	= xhci_plat_remove,
+	.shutdown = usb_hcd_platform_shutdown,
 	.driver	= {
 		.name = "xhci-hcd",
 		.pm = DEV_PM_OPS,

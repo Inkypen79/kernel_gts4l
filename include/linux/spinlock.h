@@ -55,6 +55,7 @@
 #include <linux/kernel.h>
 #include <linux/stringify.h>
 #include <linux/bottom_half.h>
+#include <linux/cleanup.h>
 #include <asm/barrier.h>
 
 
@@ -128,6 +129,42 @@ do {								\
  */
 #ifndef smp_mb__before_spinlock
 #define smp_mb__before_spinlock()	smp_wmb()
+#endif
+
+/*
+ * This barrier must provide two things:
+ *
+ *   - it must guarantee a STORE before the spin_lock() is ordered against a
+ *     LOAD after it, see the comments at its two usage sites.
+ *
+ *   - it must ensure the critical section is RCsc.
+ *
+ * The latter is important for cases where we observe values written by other
+ * CPUs in spin-loops, without barriers, while being subject to scheduling.
+ *
+ * CPU0			CPU1			CPU2
+ *
+ *			for (;;) {
+ *			  if (READ_ONCE(X))
+ *			    break;
+ *			}
+ * X=1
+ *			<sched-out>
+ *						<sched-in>
+ *						r = X;
+ *
+ * without transitivity it could be that CPU1 observes X!=0 breaks the loop,
+ * we get migrated and CPU2 sees X==0.
+ *
+ * Since most load-store architectures implement ACQUIRE with an smp_mb() after
+ * the LL/SC loop, they need no further barriers. Similarly all our TSO
+ * architectures imply an smp_mb() for each atomic instruction and equally don't
+ * need more.
+ *
+ * Architectures that can implement ACQUIRE better need to take care.
+ */
+#ifndef smp_mb__after_spinlock
+#define smp_mb__after_spinlock()	do { } while (0)
 #endif
 
 /**
@@ -416,4 +453,33 @@ extern int _atomic_dec_and_lock(atomic_t *atomic, spinlock_t *lock);
 #define atomic_dec_and_lock(atomic, lock) \
 		__cond_lock(lock, _atomic_dec_and_lock(atomic, lock))
 
+DEFINE_LOCK_GUARD_1(raw_spinlock, raw_spinlock_t,
+		    raw_spin_lock(_T->lock),
+		    raw_spin_unlock(_T->lock))
+
+DEFINE_LOCK_GUARD_1(raw_spinlock_nested, raw_spinlock_t,
+		    raw_spin_lock_nested(_T->lock, SINGLE_DEPTH_NESTING),
+		    raw_spin_unlock(_T->lock))
+
+DEFINE_LOCK_GUARD_1(raw_spinlock_irq, raw_spinlock_t,
+		    raw_spin_lock_irq(_T->lock),
+		    raw_spin_unlock_irq(_T->lock))
+
+DEFINE_LOCK_GUARD_1(raw_spinlock_irqsave, raw_spinlock_t,
+		    raw_spin_lock_irqsave(_T->lock, _T->flags),
+		    raw_spin_unlock_irqrestore(_T->lock, _T->flags),
+		    unsigned long flags)
+
+DEFINE_LOCK_GUARD_1(spinlock, spinlock_t,
+		    spin_lock(_T->lock),
+		    spin_unlock(_T->lock))
+
+DEFINE_LOCK_GUARD_1(spinlock_irq, spinlock_t,
+		    spin_lock_irq(_T->lock),
+		    spin_unlock_irq(_T->lock))
+
+DEFINE_LOCK_GUARD_1(spinlock_irqsave, spinlock_t,
+		    spin_lock_irqsave(_T->lock, _T->flags),
+		    spin_unlock_irqrestore(_T->lock, _T->flags),
+		    unsigned long flags)
 #endif /* __LINUX_SPINLOCK_H */

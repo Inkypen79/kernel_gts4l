@@ -343,16 +343,7 @@ static inline struct blkcg *cpd_to_blkcg(struct blkcg_policy_data *cpd)
  */
 static inline int blkg_path(struct blkcg_gq *blkg, char *buf, int buflen)
 {
-	char *p;
-
-	p = cgroup_path(blkg->blkcg->css.cgroup, buf, buflen);
-	if (!p) {
-		strncpy(buf, "<unavailable>", buflen);
-		return -ENAMETOOLONG;
-	}
-
-	memmove(buf, p, buf + buflen - p);
-	return 0;
+	return cgroup_path(blkg->blkcg->css.cgroup, buf, buflen);
 }
 
 /**
@@ -699,6 +690,9 @@ static inline bool blkcg_bio_issue_check(struct request_queue *q,
 
 	rcu_read_lock();
 	blkcg = bio_blkcg(bio);
+
+	/* associate blkcg if bio hasn't attached one */
+	bio_associate_blkcg(bio, &blkcg->css);
 
 	blkg = blkg_lookup(blkcg, q);
 	if (unlikely(!blkg)) {

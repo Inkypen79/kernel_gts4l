@@ -44,7 +44,8 @@ const char *trace_print_bitmask_seq(struct trace_seq *p, void *bitmask_ptr,
 				    unsigned int bitmask_size);
 
 const char *trace_print_hex_seq(struct trace_seq *p,
-				const unsigned char *buf, int len);
+				const unsigned char *buf, int len,
+				bool spacing);
 
 const char *trace_print_array_seq(struct trace_seq *p,
 				   const void *buf, int count,
@@ -279,7 +280,7 @@ struct trace_event_call {
 	struct list_head	list;
 	struct trace_event_class *class;
 	union {
-		char			*name;
+		const char		*name;
 		/* Set TRACE_EVENT_FL_TRACEPOINT flag when using "tp" */
 		struct tracepoint	*tp;
 	};
@@ -302,13 +303,36 @@ struct trace_event_call {
 #ifdef CONFIG_PERF_EVENTS
 	int				perf_refcount;
 	struct hlist_head __percpu	*perf_events;
-	struct bpf_prog			*prog;
-	struct perf_event		*bpf_prog_owner;
+	struct bpf_prog_array __rcu	*prog_array;
 
 	int	(*perf_perm)(struct trace_event_call *,
 			     struct perf_event *);
 #endif
 };
+
+#ifdef CONFIG_PERF_EVENTS
+static inline bool bpf_prog_array_valid(struct trace_event_call *call)
+{
+	/*
+	 * This inline function checks whether call->prog_array
+	 * is valid or not. The function is called in various places,
+	 * outside rcu_read_lock/unlock, as a heuristic to speed up execution.
+	 *
+	 * If this function returns true, and later call->prog_array
+	 * becomes false inside rcu_read_lock/unlock region,
+	 * we bail out then. If this function return false,
+	 * there is a risk that we might miss a few events if the checking
+	 * were delayed until inside rcu_read_lock/unlock region and
+	 * call->prog_array happened to become non-NULL then.
+	 *
+	 * Here, READ_ONCE() is used instead of rcu_access_pointer().
+	 * rcu_access_pointer() requires the actual definition of
+	 * "struct bpf_prog_array" while READ_ONCE() only needs
+	 * a declaration of the same type.
+	 */
+	return !!READ_ONCE(call->prog_array);
+}
+#endif
 
 static inline const char *
 trace_event_name(struct trace_event_call *call)
@@ -410,7 +434,7 @@ struct trace_event_file {
 	}								\
 	early_initcall(trace_init_perf_perm_##name);
 
-#define PERF_MAX_TRACE_SIZE	2048
+#define PERF_MAX_TRACE_SIZE	8192
 
 #define MAX_FILTER_STR_VAL	256	/* Should handle KSYM_SYMBOL_LEN */
 
@@ -562,11 +586,57 @@ event_trigger_unlock_commit_regs(struct trace_event_file *file,
 }
 
 #ifdef CONFIG_BPF_EVENTS
-unsigned int trace_call_bpf(struct bpf_prog *prog, void *ctx);
+unsigned int trace_call_bpf(struct trace_event_call *call, void *ctx);
+int perf_event_attach_bpf_prog(struct perf_event *event, struct bpf_prog *prog);
+void perf_event_detach_bpf_prog(struct perf_event *event);
+int perf_event_query_prog_array(struct perf_event *event, void __user *info);
+int bpf_probe_register(struct bpf_raw_event_map *btp, struct bpf_prog *prog);
+int bpf_probe_unregister(struct bpf_raw_event_map *btp, struct bpf_prog *prog);
+struct bpf_raw_event_map *bpf_get_raw_tracepoint(const char *name);
+void bpf_put_raw_tracepoint(struct bpf_raw_event_map *btp);
+int bpf_get_perf_event_info(const struct perf_event *event, u32 *prog_id,
+			    u32 *fd_type, const char **buf,
+			    u64 *probe_offset, u64 *probe_addr);
 #else
-static inline unsigned int trace_call_bpf(struct bpf_prog *prog, void *ctx)
+static inline unsigned int trace_call_bpf(struct trace_event_call *call, void *ctx)
 {
 	return 1;
+}
+
+static inline int
+perf_event_attach_bpf_prog(struct perf_event *event, struct bpf_prog *prog)
+{
+	return -EOPNOTSUPP;
+}
+
+static inline void perf_event_detach_bpf_prog(struct perf_event *event) { }
+
+static inline int
+perf_event_query_prog_array(struct perf_event *event, void __user *info)
+{
+ 	return -EOPNOTSUPP;
+}
+static inline int bpf_probe_register(struct bpf_raw_event_map *btp, struct bpf_prog *p)
+{
+ 	return -EOPNOTSUPP;
+}
+static inline int bpf_probe_unregister(struct bpf_raw_event_map *btp, struct bpf_prog *p)
+{
+ 	return -EOPNOTSUPP;
+}
+static inline struct bpf_raw_event_map *bpf_get_raw_tracepoint(const char *name)
+{
+ 	return NULL;
+}
+static inline void bpf_put_raw_tracepoint(struct bpf_raw_event_map *btp)
+{
+}
+static inline int bpf_get_perf_event_info(const struct perf_event *event,
+					  u32 *prog_id, u32 *fd_type,
+					  const char **buf, u64 *probe_offset,
+					  u64 *probe_addr)
+{
+	return -EOPNOTSUPP;
 }
 #endif
 
@@ -586,6 +656,7 @@ extern int trace_define_field(struct trace_event_call *call, const char *type,
 			      int is_signed, int filter_type);
 extern int trace_add_event_call(struct trace_event_call *call);
 extern int trace_remove_event_call(struct trace_event_call *call);
+extern int trace_event_get_offsets(struct trace_event_call *call);
 
 #define is_signed_type(type)	(((type)(-1)) < (type)1)
 
@@ -619,19 +690,67 @@ extern int  perf_trace_init(struct perf_event *event);
 extern void perf_trace_destroy(struct perf_event *event);
 extern int  perf_trace_add(struct perf_event *event, int flags);
 extern void perf_trace_del(struct perf_event *event, int flags);
+#ifdef CONFIG_KPROBE_EVENTS
+extern int  perf_kprobe_init(struct perf_event *event, bool is_retprobe);
+extern void perf_kprobe_destroy(struct perf_event *event);
+extern int bpf_get_kprobe_info(const struct perf_event *event,
+			       u32 *fd_type, const char **symbol,
+			       u64 *probe_offset, u64 *probe_addr,
+			       bool perf_type_tracepoint);
+#endif
+#ifdef CONFIG_UPROBE_EVENTS
+extern int  perf_uprobe_init(struct perf_event *event, bool is_retprobe);
+extern void perf_uprobe_destroy(struct perf_event *event);
+extern int bpf_get_uprobe_info(const struct perf_event *event,
+			       u32 *fd_type, const char **filename,
+			       u64 *probe_offset, bool perf_type_tracepoint);
+#endif
 extern int  ftrace_profile_set_filter(struct perf_event *event, int event_id,
 				     char *filter_str);
 extern void ftrace_profile_free_filter(struct perf_event *event);
-extern void *perf_trace_buf_prepare(int size, unsigned short type,
-				    struct pt_regs **regs, int *rctxp);
+void perf_trace_buf_update(void *record, u16 type);
+void *perf_trace_buf_alloc(int size, struct pt_regs **regs, int *rctxp);
+
+void bpf_trace_run1(struct bpf_prog *prog, u64 arg1);
+void bpf_trace_run2(struct bpf_prog *prog, u64 arg1, u64 arg2);
+void bpf_trace_run3(struct bpf_prog *prog, u64 arg1, u64 arg2,
+ 			u64 arg3);
+void bpf_trace_run4(struct bpf_prog *prog, u64 arg1, u64 arg2,
+ 			u64 arg3, u64 arg4);
+void bpf_trace_run5(struct bpf_prog *prog, u64 arg1, u64 arg2,
+ 			u64 arg3, u64 arg4, u64 arg5);
+void bpf_trace_run6(struct bpf_prog *prog, u64 arg1, u64 arg2,
+ 			u64 arg3, u64 arg4, u64 arg5, u64 arg6);
+void bpf_trace_run7(struct bpf_prog *prog, u64 arg1, u64 arg2,
+ 			u64 arg3, u64 arg4, u64 arg5, u64 arg6, u64 arg7);
+void bpf_trace_run8(struct bpf_prog *prog, u64 arg1, u64 arg2,
+ 			u64 arg3, u64 arg4, u64 arg5, u64 arg6, u64 arg7,
+ 			u64 arg8);
+void bpf_trace_run9(struct bpf_prog *prog, u64 arg1, u64 arg2,
+ 			u64 arg3, u64 arg4, u64 arg5, u64 arg6, u64 arg7,
+ 			u64 arg8, u64 arg9);
+void bpf_trace_run10(struct bpf_prog *prog, u64 arg1, u64 arg2,
+ 			u64 arg3, u64 arg4, u64 arg5, u64 arg6, u64 arg7,
+ 			u64 arg8, u64 arg9, u64 arg10);
+void bpf_trace_run11(struct bpf_prog *prog, u64 arg1, u64 arg2,
+ 			u64 arg3, u64 arg4, u64 arg5, u64 arg6, u64 arg7,
+ 			u64 arg8, u64 arg9, u64 arg10, u64 arg11);
+void bpf_trace_run12(struct bpf_prog *prog, u64 arg1, u64 arg2,
+ 			u64 arg3, u64 arg4, u64 arg5, u64 arg6, u64 arg7,
+ 			u64 arg8, u64 arg9, u64 arg10, u64 arg11, u64 arg12);
+void perf_trace_run_bpf_submit(void *raw_data, int size, int rctx,
+			       struct trace_event_call *call, u64 count,
+			       struct pt_regs *regs, struct hlist_head *head,
+			       struct task_struct *task);
 
 static inline void
-perf_trace_buf_submit(void *raw_data, int size, int rctx, u64 addr,
+perf_trace_buf_submit(void *raw_data, int size, int rctx, u16 type,
 		       u64 count, struct pt_regs *regs, void *head,
 		       struct task_struct *task)
 {
-	perf_tp_event(addr, count, raw_data, size, regs, head, rctx, task);
+	perf_tp_event(type, count, raw_data, size, regs, head, rctx, task);
 }
+
 #endif
 
 #endif /* _LINUX_TRACE_EVENT_H */

@@ -1079,7 +1079,7 @@ void cw1200_rx_cb(struct cw1200_common *priv,
 
 	hdr->band = ((arg->channel_number & 0xff00) ||
 		     (arg->channel_number > 14)) ?
-			IEEE80211_BAND_5GHZ : IEEE80211_BAND_2GHZ;
+			NL80211_BAND_5GHZ : NL80211_BAND_2GHZ;
 	hdr->freq = ieee80211_channel_to_frequency(
 			arg->channel_number,
 			hdr->band);
@@ -1173,7 +1173,7 @@ void cw1200_rx_cb(struct cw1200_common *priv,
 		size_t ies_len = skb->len - (ies - (u8 *)(skb->data));
 
 		tim_ie = cfg80211_find_ie(WLAN_EID_TIM, ies, ies_len);
-		if (tim_ie) {
+		if (tim_ie && tim_ie[1] >= sizeof(struct ieee80211_tim_ie)) {
 			struct ieee80211_tim_ie *tim =
 				(struct ieee80211_tim_ie *)&tim_ie[2];
 

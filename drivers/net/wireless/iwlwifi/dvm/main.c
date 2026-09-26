@@ -174,7 +174,7 @@ int iwlagn_send_beacon_cmd(struct iwl_priv *priv)
 	rate_flags = iwl_ant_idx_to_flags(priv->mgmt_tx_ant);
 
 	/* In mac80211, rates for 5 GHz start at 0 */
-	if (info->band == IEEE80211_BAND_5GHZ)
+	if (info->band == NL80211_BAND_5GHZ)
 		rate += IWL_FIRST_OFDM_RATE;
 	else if (rate >= IWL_FIRST_CCK_RATE && rate <= IWL_LAST_CCK_RATE)
 		rate_flags |= RATE_MCS_CCK_MSK;
@@ -981,9 +981,11 @@ static void iwl_bg_restart(struct work_struct *data)
  *
  *****************************************************************************/
 
-static void iwl_setup_deferred_work(struct iwl_priv *priv)
+static int iwl_setup_deferred_work(struct iwl_priv *priv)
 {
 	priv->workqueue = create_singlethread_workqueue(DRV_NAME);
+	if (!priv->workqueue)
+		return -ENOMEM;
 
 	INIT_WORK(&priv->restart, iwl_bg_restart);
 	INIT_WORK(&priv->beacon_update, iwl_bg_beacon_update);
@@ -1002,6 +1004,8 @@ static void iwl_setup_deferred_work(struct iwl_priv *priv)
 
 	setup_timer(&priv->ucode_trace, iwl_bg_ucode_trace,
 		    (unsigned long)priv);
+
+	return 0;
 }
 
 void iwl_cancel_deferred_work(struct iwl_priv *priv)
@@ -1029,7 +1033,7 @@ static int iwl_init_drv(struct iwl_priv *priv)
 
 	INIT_LIST_HEAD(&priv->calib_results);
 
-	priv->band = IEEE80211_BAND_2GHZ;
+	priv->band = NL80211_BAND_2GHZ;
 
 	priv->plcp_delta_threshold = priv->lib->plcp_delta_threshold;
 
@@ -1359,7 +1363,9 @@ static struct iwl_op_mode *iwl_op_mode_dvm_start(struct iwl_trans *trans,
 	/********************
 	 * 6. Setup services
 	 ********************/
-	iwl_setup_deferred_work(priv);
+	if (iwl_setup_deferred_work(priv))
+		goto out_uninit_drv;
+
 	iwl_setup_rx_handlers(priv);
 
 	iwl_power_initialize(priv);
@@ -1400,6 +1406,7 @@ out_destroy_workqueue:
 	iwl_cancel_deferred_work(priv);
 	destroy_workqueue(priv->workqueue);
 	priv->workqueue = NULL;
+out_uninit_drv:
 	iwl_uninit_drv(priv);
 out_free_eeprom_blob:
 	kfree(priv->eeprom_blob);

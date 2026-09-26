@@ -762,10 +762,10 @@ txq_put_data_tso(struct net_device *dev, struct tx_queue *txq,
 
 	if (length <= 8 && (uintptr_t)data & 0x7) {
 		/* Copy unaligned small data fragment to TSO header data area */
-		memcpy(txq->tso_hdrs + txq->tx_curr_desc * TSO_HEADER_SIZE,
+		memcpy(txq->tso_hdrs + tx_index * TSO_HEADER_SIZE,
 		       data, length);
 		desc->buf_ptr = txq->tso_hdrs_dma
-			+ txq->tx_curr_desc * TSO_HEADER_SIZE;
+			+ tx_index * TSO_HEADER_SIZE;
 	} else {
 		/* Alignment is okay, map buffer and hand off to hardware */
 		txq->tx_desc_mapping[tx_index] = DESC_DMA_MAP_SINGLE;
@@ -2489,6 +2489,7 @@ out_free:
 	for (i = 0; i < mp->rxq_count; i++)
 		rxq_deinit(mp->rxq + i);
 out:
+	napi_disable(&mp->napi);
 	free_irq(dev->irq, dev);
 
 	return err;

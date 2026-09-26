@@ -460,8 +460,10 @@ static void rtl8180_tx(struct ieee80211_hw *dev,
 	struct rtl8180_priv *priv = dev->priv;
 	struct rtl8180_tx_ring *ring;
 	struct rtl8180_tx_desc *entry;
+	unsigned int prio = 0;
 	unsigned long flags;
-	unsigned int idx, prio, hw_prio;
+	unsigned int idx, hw_prio;
+
 	dma_addr_t mapping;
 	u32 tx_flags;
 	u8 rc_flags;
@@ -470,7 +472,9 @@ static void rtl8180_tx(struct ieee80211_hw *dev,
 	/* do arithmetic and then convert to le16 */
 	u16 frame_duration = 0;
 
-	prio = skb_get_queue_mapping(skb);
+	/* rtl8180/rtl8185 only has one useable tx queue */
+	if (dev->queues > IEEE80211_AC_BK)
+		prio = skb_get_queue_mapping(skb);
 	ring = &priv->tx_ring[prio];
 
 	mapping = pci_map_single(priv->pdev, skb->data,
@@ -526,7 +530,7 @@ static void rtl8180_tx(struct ieee80211_hw *dev,
 		 * ieee80211_generic_frame_duration
 		 */
 		duration = ieee80211_generic_frame_duration(dev, priv->vif,
-					IEEE80211_BAND_2GHZ, skb->len,
+					NL80211_BAND_2GHZ, skb->len,
 					ieee80211_get_tx_rate(dev, info));
 
 		frame_duration =  priv->ack_time + le16_to_cpu(duration);
@@ -1529,7 +1533,7 @@ static void rtl8180_bss_info_changed(struct ieee80211_hw *dev,
 		priv->ack_time =
 			le16_to_cpu(ieee80211_generic_frame_duration(dev,
 					priv->vif,
-					IEEE80211_BAND_2GHZ, 10,
+					NL80211_BAND_2GHZ, 10,
 					&priv->rates[0])) - 10;
 
 		rtl8180_conf_erp(dev, info);
@@ -1795,12 +1799,12 @@ static int rtl8180_probe(struct pci_dev *pdev,
 	memcpy(priv->channels, rtl818x_channels, sizeof(rtl818x_channels));
 	memcpy(priv->rates, rtl818x_rates, sizeof(rtl818x_rates));
 
-	priv->band.band = IEEE80211_BAND_2GHZ;
+	priv->band.band = NL80211_BAND_2GHZ;
 	priv->band.channels = priv->channels;
 	priv->band.n_channels = ARRAY_SIZE(rtl818x_channels);
 	priv->band.bitrates = priv->rates;
 	priv->band.n_bitrates = 4;
-	dev->wiphy->bands[IEEE80211_BAND_2GHZ] = &priv->band;
+	dev->wiphy->bands[NL80211_BAND_2GHZ] = &priv->band;
 
 	ieee80211_hw_set(dev, HOST_BROADCAST_PS_BUFFERING);
 	ieee80211_hw_set(dev, RX_INCLUDES_FCS);

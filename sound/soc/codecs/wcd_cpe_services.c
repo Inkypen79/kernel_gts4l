@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, 2018, 2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -663,8 +663,8 @@ static void cpe_notify_cmi_client(struct cpe_info *t_info, u8 *payload,
 	hdr = CMI_GET_HEADER(payload);
 	service = CMI_HDR_GET_SERVICE(hdr);
 
-	notif.event = CPE_SVC_CMI_MSG;
-	notif.result = result;
+	notif.event = (enum cmi_api_event)CPE_SVC_CMI_MSG;
+	notif.result = (enum cmi_api_result)result;
 	notif.message = payload;
 
 	CPE_SVC_GRAB_LOCK(&cpe_d.cpe_svc_lock, "cpe_svc");
@@ -1000,7 +1000,7 @@ static enum cpe_svc_result broadcast_boot_event(
 static enum cpe_process_result cpe_boot_initialize(struct cpe_info *t_info,
 	enum cpe_svc_result *cpe_rc)
 {
-	enum cpe_process_result rc = CPE_SVC_FAILED;
+	enum cpe_process_result rc = (enum cpe_process_result)CPE_SVC_FAILED;
 	struct cpe_svc_notification payload;
 	struct cmi_core_svc_event_system_boot *p = NULL;
 
@@ -1178,7 +1178,7 @@ static enum cpe_process_result cpe_boot_complete(
 	}
 
 	pr_debug("%s: boot complete\n", __func__);
-	return CPE_SVC_SUCCESS;
+	return CPE_PROC_SUCCESS;
 }
 
 static enum cpe_process_result cpe_process_send_msg(
@@ -1355,7 +1355,7 @@ static enum cpe_process_result cpe_mt_process_cmd(
 
 		cpe_change_state(t_info, CPE_STATE_SENDING_MSG,
 				CPE_SS_MSG_SEND_INBOX);
-		rc = cpe_send_msg_to_inbox(t_info, 0, m);
+		rc = (enum cpe_process_result)cpe_send_msg_to_inbox(t_info, 0, m);
 		break;
 
 	case CPE_CMD_SEND_MSG_COMPLETE:
@@ -2021,7 +2021,7 @@ enum cmi_api_result cmi_send_msg(void *message)
 		pr_err("%s: no memory for cmi msg, sz = %zu\n",
 			__func__, sizeof(struct cpe_send_msg));
 		CPE_SVC_REL_LOCK(&cpe_d.cpe_api_mutex, "cpe_api");
-		return CPE_SVC_NO_MEMORY;
+		return (enum cmi_api_result)CPE_SVC_NO_MEMORY;
 	}
 
 	if (CMI_HDR_GET_OBM_FLAG(hdr) == CMI_OBM_FLAG_OUT_BAND)
@@ -2038,7 +2038,7 @@ enum cmi_api_result cmi_send_msg(void *message)
 			__func__, msg->size);
 		kfree(msg);
 		CPE_SVC_REL_LOCK(&cpe_d.cpe_api_mutex, "cpe_api");
-		return CPE_SVC_NO_MEMORY;
+		return (enum cmi_api_result)CPE_SVC_NO_MEMORY;
 	}
 
 	msg->address = 0;

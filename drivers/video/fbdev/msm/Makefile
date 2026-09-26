@@ -1,4 +1,4 @@
-ccflags-y += -I$(src) -Idrivers/staging/android
+ccflags-y += -I$(src) -I $(srctree)/drivers/staging/android
 
 obj-$(CONFIG_FB_MSM_MDSS_MHL3) += mhl3/
 obj-$(CONFIG_MSM_DBA) += msm_dba/
@@ -70,3 +70,5 @@ obj-$(CONFIG_COMPAT) += mdss_compat_utils.o
 ifeq ($(CONFIG_FB_MSM_MDSS_SAMSUNG),y)
 obj-y += samsung/
 endif
+
+obj-$(CONFIG_FB_MSM_MDSS) += mdss_livedisplay.o

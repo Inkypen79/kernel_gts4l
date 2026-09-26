@@ -44,8 +44,9 @@ void autofs4_catatonic_mode(struct autofs_sb_info *sbi)
 		wq->status = -ENOENT; /* Magic is gone - report failure */
 		kfree(wq->name.name);
 		wq->name.name = NULL;
-		wq->wait_ctr--;
 		wake_up_interruptible(&wq->queue);
+		if (!--wq->wait_ctr)
+			kfree(wq);
 		wq = nwq;
 	}
 	fput(sbi->pipe);	/* Close the pipe */
@@ -439,8 +440,8 @@ int autofs4_wait(struct autofs_sb_info *sbi, struct dentry *dentry,
 		memcpy(&wq->name, &qstr, sizeof(struct qstr));
 		wq->dev = autofs4_get_dev(sbi);
 		wq->ino = autofs4_get_ino(sbi);
-		wq->uid = current_uid();
-		wq->gid = current_gid();
+		wq->uid = current_cred()->uid;
+		wq->gid = current_cred()->gid;
 		wq->pid = pid;
 		wq->tgid = tgid;
 		wq->status = -EINTR; /* Status return if interrupted */

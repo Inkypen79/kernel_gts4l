@@ -931,6 +931,8 @@ int __orinoco_hw_setup_enc(struct orinoco_private *priv)
 			err = hermes_write_wordrec(hw, USER_BAP,
 					HERMES_RID_CNFAUTHENTICATION_AGERE,
 					auth_flag);
+			if (err)
+				return err;
 		}
 		err = hermes_write_wordrec(hw, USER_BAP,
 					   HERMES_RID_CNFWEPENABLED_AGERE,
@@ -1193,7 +1195,7 @@ int orinoco_hw_get_freq(struct orinoco_private *priv)
 		goto out;
 
 	}
-	freq = ieee80211_channel_to_frequency(channel, IEEE80211_BAND_2GHZ);
+	freq = ieee80211_channel_to_frequency(channel, NL80211_BAND_2GHZ);
 
  out:
 	orinoco_unlock(priv, &flags);

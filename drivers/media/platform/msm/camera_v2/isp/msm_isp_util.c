@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1740,6 +1740,10 @@ int msm_isp_cal_word_per_line(uint32_t output_format,
 	case V4L2_PIX_FMT_P16GBRG10:
 	case V4L2_PIX_FMT_P16GRBG10:
 	case V4L2_PIX_FMT_P16RGGB10:
+	case V4L2_PIX_FMT_P16BGGR12:
+	case V4L2_PIX_FMT_P16GBRG12:
+	case V4L2_PIX_FMT_P16GRBG12:
+	case V4L2_PIX_FMT_P16RGGB12:
 		val = CAL_WORD(pixel_per_line, 1, 4);
 	break;
 	case V4L2_PIX_FMT_NV24:
@@ -1803,6 +1807,10 @@ enum msm_isp_pack_fmt msm_isp_get_pack_format(uint32_t output_format)
 	case V4L2_PIX_FMT_P16GBRG10:
 	case V4L2_PIX_FMT_P16GRBG10:
 	case V4L2_PIX_FMT_P16RGGB10:
+	case V4L2_PIX_FMT_P16BGGR12:
+	case V4L2_PIX_FMT_P16GBRG12:
+	case V4L2_PIX_FMT_P16GRBG12:
+	case V4L2_PIX_FMT_P16RGGB12:
 		return PLAIN16;
 	default:
 		msm_isp_print_fourcc_error(__func__, output_format);
@@ -1887,6 +1895,10 @@ int msm_isp_get_bit_per_pixel(uint32_t output_format)
 	case V4L2_PIX_FMT_QGRBG12:
 	case V4L2_PIX_FMT_QRGGB12:
 	case V4L2_PIX_FMT_Y12:
+	case V4L2_PIX_FMT_P16BGGR12:
+	case V4L2_PIX_FMT_P16GBRG12:
+	case V4L2_PIX_FMT_P16GRBG12:
+	case V4L2_PIX_FMT_P16RGGB12:
 	case MSM_V4L2_PIX_FMT_META12:
 		return 12;
 	case V4L2_PIX_FMT_SBGGR14:
@@ -2481,65 +2493,7 @@ void msm_isp_flush_tasklet(struct vfe_device *vfe_dev)
 		spin_unlock_irqrestore(&tasklet->tasklet_lock, flags);
 		tasklet_kill(&tasklet->tasklet);
 	}
-
 	atomic_set(&vfe_dev->irq_cnt, 0);
+
 	return;
-}
-
-static void msm_isp_irq_debug_dump(struct vfe_device *vfe_dev)
-{
-
-	uint8_t i, dump_index;
-	unsigned long flags;
-
-	spin_lock_irqsave(
-		&common_dev_irq_dump_lock, flags);
-	dump_index = vfe_irq_dump.
-		current_irq_index;
-	for (i = 0; i < MAX_VFE_IRQ_DEBUG_DUMP_SIZE; i++) {
-		struct msm_vfe_irq_debug_info *info =
-			&(vfe_irq_dump.irq_debug[dump_index]);
-		if (info->irq_dump == 2) {
-			pr_err("[%ld.%ld] %s vfe %d frame %d\n",
-				info->ts.buf_time.tv_sec,
-				info->ts.buf_time.tv_usec,
-				"ispif_process_irq",
-				info->vfe_id, info->core_id);
-			dump_index = (dump_index + 1) %
-					MAX_VFE_IRQ_DEBUG_DUMP_SIZE;
-			continue;
-		}
-		if (!info->dual) {
-			pr_err("[%ld.%ld] %s: vfe %d irq_status0 %x irq_status1: %x pp %x\n",
-				info->ts.buf_time.tv_sec,
-				info->ts.buf_time.tv_usec,
-				info->irq_dump == 0 ? "msm_isp_process_irq" :
-						"msm_isp_tasklet",
-				info->vfe_id, info->irq_status0[info->vfe_id],
-				info->irq_status1[info->vfe_id],
-				info->ping_pong_status[info->vfe_id]);
-		} else {
-			pr_err("[%ld.%ld] %s: vfe %d irq_status0 %x irq_status1: %x pp %x other_vfe %d irq_status0 %x irq_status1: %x pp %x\n",
-				info->ts.buf_time.tv_sec,
-				info->ts.buf_time.tv_usec,
-				info->irq_dump == 0 ? "msm_isp_process_irq" :
-						"msm_isp_tasklet",
-				info->vfe_id, info->irq_status0[info->vfe_id],
-				info->irq_status1[info->vfe_id],
-				info->ping_pong_status[info->vfe_id],
-				!info->vfe_id, info->irq_status0[!info->vfe_id],
-				info->irq_status1[!info->vfe_id],
-				info->ping_pong_status[!info->vfe_id]);
-		}
-		dump_index = (dump_index + 1) % MAX_VFE_IRQ_DEBUG_DUMP_SIZE;
-	}
-	spin_unlock_irqrestore(
-		&common_dev_irq_dump_lock, flags);
-}
-
-void msm_isp_dump_ping_pong_mismatch(struct vfe_device *vfe_dev)
-{
-	trace_msm_cam_string(" ***** msm_isp_dump_irq_debug ****");
-	pr_err(" ***** msm_isp_dump_irq_debug ****\n");
-	msm_isp_irq_debug_dump(vfe_dev);
 }

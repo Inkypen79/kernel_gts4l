@@ -796,13 +796,16 @@ unsigned int max_possible_capacity = 1024; /* max(rq->max_possible_capacity) */
 unsigned int
 min_max_possible_capacity = 1024; /* min(rq->max_possible_capacity) */
 
-/* Min window size (in ns) = 10ms */
-#define MIN_SCHED_RAVG_WINDOW 10000000
+/* Min window size (in ns) = 20ms */
+#define MIN_SCHED_RAVG_WINDOW ((20000000 / TICK_NSEC) * TICK_NSEC)
 
 /* Max window size (in ns) = 1s */
-#define MAX_SCHED_RAVG_WINDOW 1000000000
+#define MAX_SCHED_RAVG_WINDOW ((1000000000 / TICK_NSEC) * TICK_NSEC)
 
-/* Window size (in ns) */
+/*
+ * Window size (in ns). Adjust for the tick size so that the window
+ * rollover occurs just before the tick boundary.
+ */
 __read_mostly unsigned int sched_ravg_window = MIN_SCHED_RAVG_WINDOW;
 
 /* Maximum allowed threshold before freq aggregation must be enabled */
@@ -1648,17 +1651,20 @@ static inline int exiting_task(struct task_struct *p)
 
 static int __init set_sched_ravg_window(char *str)
 {
+	unsigned int adj_window;
 	unsigned int window_size;
 
 	get_option(&str, &window_size);
 
-	if (window_size < MIN_SCHED_RAVG_WINDOW ||
-			window_size > MAX_SCHED_RAVG_WINDOW) {
-		WARN_ON(1);
-		return -EINVAL;
-	}
+	/* Adjust for CONFIG_HZ */
+	adj_window = (window_size / TICK_NSEC) * TICK_NSEC;
 
-	sched_ravg_window = window_size;
+	/* Warn if we're a bit too far away from the expected window size */
+	WARN(adj_window < window_size - NSEC_PER_MSEC,
+	     "tick-adjusted window size %u, original was %u\n", adj_window,
+	     window_size);
+
+	sched_ravg_window = adj_window;
 	return 0;
 }
 
@@ -3249,6 +3255,13 @@ void sched_get_cpus_busy(struct sched_load *busy,
 		update_task_ravg(rq->curr, rq, TASK_UPDATE, sched_ktime_clock(),
 				 0);
 
+		/*
+		 * Ensure that we don't report load for 'cpu' again via the
+		 * cpufreq_update_util path in the window that started at
+		 * rq->window_start
+		 */
+		rq->load_reported_window = rq->window_start;
+
 		account_load_subtractions(rq);
 		load[i] = rq->prev_runnable_sum;
 		nload[i] = rq->nt_prev_runnable_sum;
@@ -3681,6 +3694,13 @@ void fixup_busy_time(struct task_struct *p, int new_cpu)
 
 	migrate_top_tasks(p, src_rq, dest_rq);
 
+	if (!same_freq_domain(new_cpu, task_cpu(p))) {
+		cpufreq_update_util(dest_rq, SCHED_CPUFREQ_INTERCLUSTER_MIG |
+					     SCHED_CPUFREQ_WALT);
+		cpufreq_update_util(src_rq, SCHED_CPUFREQ_INTERCLUSTER_MIG |
+					    SCHED_CPUFREQ_WALT);
+	}
+
 	if (p == src_rq->ed_task) {
 		src_rq->ed_task = NULL;
 		if (!dest_rq->ed_task)
@@ -3939,16 +3959,17 @@ err:
 static void remove_task_from_group(struct task_struct *p)
 {
 	struct related_thread_group *grp = p->grp;
+	struct rq_flags rf;
 	struct rq *rq;
 	int empty_group = 1;
 
 	raw_spin_lock(&grp->lock);
 
-	rq = __task_rq_lock(p);
+	rq = __task_rq_lock(p, &rf);
 	transfer_busy_time(rq, p->grp, p, REM_TASK);
 	list_del_init(&p->grp_list);
 	rcu_assign_pointer(p->grp, NULL);
-	__task_rq_unlock(rq);
+	__task_rq_unlock(rq, &rf);
 
 	if (!list_empty(&grp->tasks)) {
 		empty_group = 0;
@@ -3969,6 +3990,7 @@ static void remove_task_from_group(struct task_struct *p)
 static int
 add_task_to_group(struct task_struct *p, struct related_thread_group *grp)
 {
+	struct rq_flags rf;
 	struct rq *rq;
 
 	raw_spin_lock(&grp->lock);
@@ -3977,11 +3999,11 @@ add_task_to_group(struct task_struct *p, struct related_thread_group *grp)
 	 * Change p->grp under rq->lock. Will prevent races with read-side
 	 * reference of p->grp in various hot-paths
 	 */
-	rq = __task_rq_lock(p);
+	rq = __task_rq_lock(p, &rf);
 	transfer_busy_time(rq, grp, p, ADD_TASK);
 	list_add(&p->grp_list, &grp->tasks);
 	rcu_assign_pointer(p->grp, grp);
-	__task_rq_unlock(rq);
+	__task_rq_unlock(rq, &rf);
 
 	_set_preferred_cluster(grp);
 

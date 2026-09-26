@@ -19,17 +19,30 @@
 #include <linux/seq_file.h>
 #include <linux/cryptouser.h>
 #include <net/netlink.h>
+#include <linux/compiler.h>
 
 #include "internal.h"
 
 static const struct crypto_type crypto_shash_type;
 
-int shash_no_setkey(struct crypto_shash *tfm, const u8 *key,
-		    unsigned int keylen)
+static int shash_no_setkey(struct crypto_shash *tfm, const u8 *key,
+			   unsigned int keylen)
 {
 	return -ENOSYS;
 }
-EXPORT_SYMBOL_GPL(shash_no_setkey);
+
+/*
+ * Check whether an shash algorithm has a setkey function.
+ *
+ * For CFI compatibility, this must not be an inline function.  This is because
+ * when CFI is enabled, modules won't get the same address for shash_no_setkey
+ * (if it were exported, which inlining would require) as the core kernel will.
+ */
+bool crypto_shash_alg_has_setkey(struct shash_alg *alg)
+{
+	return alg->setkey != shash_no_setkey;
+}
+EXPORT_SYMBOL_GPL(crypto_shash_alg_has_setkey);
 
 static int shash_setkey_unaligned(struct crypto_shash *tfm, const u8 *key,
 				  unsigned int keylen)
@@ -68,7 +81,7 @@ EXPORT_SYMBOL_GPL(crypto_shash_setkey);
 static inline unsigned int shash_align_buffer_size(unsigned len,
 						   unsigned long mask)
 {
-	typedef u8 __attribute__ ((aligned)) u8_aligned;
+	typedef u8 __aligned_largest u8_aligned;
 	return len + (mask & ~(__alignof__(u8_aligned) - 1));
 }
 
@@ -81,7 +94,7 @@ static int shash_update_unaligned(struct shash_desc *desc, const u8 *data,
 	unsigned int unaligned_len = alignmask + 1 -
 				     ((unsigned long)data & alignmask);
 	u8 ubuf[shash_align_buffer_size(unaligned_len, alignmask)]
-		__attribute__ ((aligned));
+		__aligned_largest;
 	u8 *buf = PTR_ALIGN(&ubuf[0], alignmask + 1);
 	int err;
 
@@ -117,7 +130,7 @@ static int shash_final_unaligned(struct shash_desc *desc, u8 *out)
 	struct shash_alg *shash = crypto_shash_alg(tfm);
 	unsigned int ds = crypto_shash_digestsize(tfm);
 	u8 ubuf[shash_align_buffer_size(ds, alignmask)]
-		__attribute__ ((aligned));
+		__aligned_largest;
 	u8 *buf = PTR_ALIGN(&ubuf[0], alignmask + 1);
 	int err;
 
@@ -551,7 +564,7 @@ static int crypto_shash_report(struct sk_buff *skb, struct crypto_alg *alg)
 #endif
 
 static void crypto_shash_show(struct seq_file *m, struct crypto_alg *alg)
-	__attribute__ ((unused));
+	__maybe_unused;
 static void crypto_shash_show(struct seq_file *m, struct crypto_alg *alg)
 {
 	struct shash_alg *salg = __crypto_shash_alg(alg);

@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -238,6 +238,10 @@ static int msm_isp_validate_axi_request(struct vfe_device *vfe_dev,
 	case V4L2_PIX_FMT_P16GBRG10:
 	case V4L2_PIX_FMT_P16GRBG10:
 	case V4L2_PIX_FMT_P16RGGB10:
+	case V4L2_PIX_FMT_P16BGGR12:
+	case V4L2_PIX_FMT_P16GBRG12:
+	case V4L2_PIX_FMT_P16GRBG12:
+	case V4L2_PIX_FMT_P16RGGB12:
 	case V4L2_PIX_FMT_JPEG:
 	case V4L2_PIX_FMT_META:
 	case V4L2_PIX_FMT_META10:
@@ -381,6 +385,10 @@ static uint32_t msm_isp_axi_get_plane_size(
 	case V4L2_PIX_FMT_P16GBRG10:
 	case V4L2_PIX_FMT_P16GRBG10:
 	case V4L2_PIX_FMT_P16RGGB10:
+	case V4L2_PIX_FMT_P16BGGR12:
+	case V4L2_PIX_FMT_P16GBRG12:
+	case V4L2_PIX_FMT_P16GRBG12:
+	case V4L2_PIX_FMT_P16RGGB12:
 		size = plane_cfg[plane_idx].output_height *
 		plane_cfg[plane_idx].output_width;
 		break;
@@ -573,7 +581,6 @@ static int msm_isp_composite_irq(struct vfe_device *vfe_dev,
 {
 	/* interrupt recv on same vfe w/o recv on other vfe */
 	if (stream_info->composite_irq[irq] & (1 << vfe_dev->pdev->id)) {
-		msm_isp_dump_ping_pong_mismatch(vfe_dev);
 		pr_err("%s: irq %d out of sync for dual vfe on vfe %d\n",
 			__func__, irq, vfe_dev->pdev->id);
 		return -EINVAL;
@@ -4129,7 +4136,6 @@ void msm_isp_process_axi_irq_stream(struct vfe_device *vfe_dev,
 			(~(pingpong_status >>
 			stream_info->wm[vfe_idx][i]) & 0x1)) {
 			spin_unlock_irqrestore(&stream_info->lock, flags);
-			msm_isp_dump_ping_pong_mismatch(vfe_dev);
 			pr_err("%s: Write master ping pong mismatch. Status: 0x%x %x\n",
 				__func__, pingpong_status,
 				stream_info->stream_src);

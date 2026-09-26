@@ -25,6 +25,7 @@
 #include <linux/percpu.h>
 #include <linux/slab.h>
 #include <linux/module.h>
+#include <linux/wakeup_reason.h>
 
 #include <linux/irqchip.h>
 #include <linux/irqchip/arm-gic-v3.h>
@@ -259,6 +260,13 @@ static int gic_irq_set_irqchip_state(struct irq_data *d,
 	}
 
 	gic_poke_irq(d, reg);
+
+	/*
+	 * Force read-back to guarantee that the active state has taken
+	 * effect, and won't race with a guest-driven deactivation.
+	 */
+	if (reg == GICD_ISACTIVER)
+		gic_peek_irq(d, reg);
 	return 0;
 }
 
@@ -442,7 +450,8 @@ static void gic_show_resume_irq(struct gic_chip_data *gic)
 		else if (desc->action && desc->action->name)
 			name = desc->action->name;
 
-		pr_warn("%s: %d triggered %s(gic%d)\n", __func__, irq, name, i);
+		log_base_wakeup_reason(irq);
+		pr_warn("%s: %d triggered %s\n", __func__, irq, name);
 	}
 }
 
@@ -871,7 +880,7 @@ static int gic_cpu_pm_notifier(struct notifier_block *self,
 	if (from_suspend)
 		return NOTIFY_OK;
 
-	if (cmd == CPU_PM_EXIT) {
+	if (cmd == CPU_PM_EXIT || cmd == CPU_PM_ENTER_FAILED) {
 		gic_enable_redist(true);
 		gic_cpu_sys_reg_init();
 	} else if (cmd == CPU_PM_ENTER) {

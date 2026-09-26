@@ -554,7 +554,7 @@ static void close_connection(struct connection *con, bool and_other,
 	}
 	if (con->othercon && and_other) {
 		/* Will only re-enter once. */
-		close_connection(con->othercon, false, true, true);
+		close_connection(con->othercon, false, tx, rx);
 	}
 	if (con->rx_page) {
 		__free_page(con->rx_page);
@@ -702,7 +702,7 @@ static int tcp_accept_from_sock(struct connection *con)
 	newsock->type = con->sock->type;
 	newsock->ops = con->sock->ops;
 
-	result = con->sock->ops->accept(con->sock, newsock, O_NONBLOCK);
+	result = con->sock->ops->accept(con->sock, newsock, O_NONBLOCK, true);
 	if (result < 0)
 		goto accept_err;
 

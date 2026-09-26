@@ -130,19 +130,15 @@ EXPORT_SYMBOL_GPL(af_alg_release);
 void af_alg_release_parent(struct sock *sk)
 {
 	struct alg_sock *ask = alg_sk(sk);
-	unsigned int nokey = ask->nokey_refcnt;
-	bool last = nokey && !ask->refcnt;
+	unsigned int nokey = atomic_read(&ask->nokey_refcnt);
 
 	sk = ask->parent;
 	ask = alg_sk(sk);
 
-	lock_sock(sk);
-	ask->nokey_refcnt -= nokey;
-	if (!last)
-		last = !--ask->refcnt;
-	release_sock(sk);
+	if (nokey)
+		atomic_dec(&ask->nokey_refcnt);
 
-	if (last)
+	if (atomic_dec_and_test(&ask->refcnt))
 		sock_put(sk);
 }
 EXPORT_SYMBOL_GPL(af_alg_release_parent);
@@ -187,7 +183,7 @@ static int alg_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
 
 	err = -EBUSY;
 	lock_sock(sk);
-	if (ask->refcnt | ask->nokey_refcnt)
+	if (atomic_read(&ask->refcnt))
 		goto unlock;
 
 	swap(ask->type, type);
@@ -236,7 +232,7 @@ static int alg_setsockopt(struct socket *sock, int level, int optname,
 	int err = -EBUSY;
 
 	lock_sock(sk);
-	if (ask->refcnt)
+	if (atomic_read(&ask->refcnt) != atomic_read(&ask->nokey_refcnt))
 		goto unlock;
 
 	type = ask->type;
@@ -268,7 +264,7 @@ unlock:
 	return err;
 }
 
-int af_alg_accept(struct sock *sk, struct socket *newsock)
+int af_alg_accept(struct sock *sk, struct socket *newsock, bool kern)
 {
 	struct alg_sock *ask = alg_sk(sk);
 	const struct af_alg_type *type;
@@ -283,7 +279,7 @@ int af_alg_accept(struct sock *sk, struct socket *newsock)
 	if (!type)
 		goto unlock;
 
-	sk2 = sk_alloc(sock_net(sk), PF_ALG, GFP_KERNEL, &alg_proto, 0);
+	sk2 = sk_alloc(sock_net(sk), PF_ALG, GFP_KERNEL, &alg_proto, kern);
 	err = -ENOMEM;
 	if (!sk2)
 		goto unlock;
@@ -303,12 +299,14 @@ int af_alg_accept(struct sock *sk, struct socket *newsock)
 
 	sk2->sk_family = PF_ALG;
 
-	if (nokey || !ask->refcnt++)
+	if (atomic_inc_return_relaxed(&ask->refcnt) == 1)
 		sock_hold(sk);
-	ask->nokey_refcnt += nokey;
+	if (nokey) {
+		atomic_inc(&ask->nokey_refcnt);
+		atomic_set(&alg_sk(sk2)->nokey_refcnt, 1);
+	}
 	alg_sk(sk2)->parent = sk;
 	alg_sk(sk2)->type = type;
-	alg_sk(sk2)->nokey_refcnt = nokey;
 
 	newsock->ops = type->ops;
 	newsock->state = SS_CONNECTED;
@@ -325,9 +323,10 @@ unlock:
 }
 EXPORT_SYMBOL_GPL(af_alg_accept);
 
-static int alg_accept(struct socket *sock, struct socket *newsock, int flags)
+static int alg_accept(struct socket *sock, struct socket *newsock, int flags,
+		      bool kern)
 {
-	return af_alg_accept(sock->sk, newsock);
+	return af_alg_accept(sock->sk, newsock, kern);
 }
 
 static const struct proto_ops alg_proto_ops = {

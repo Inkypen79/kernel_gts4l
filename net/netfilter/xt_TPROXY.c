@@ -105,22 +105,27 @@ tproxy_laddr4(struct sk_buff *skb, __be32 user_laddr, __be32 daddr)
  * belonging to established connections going through that one.
  */
 static inline struct sock *
-nf_tproxy_get_sock_v4(struct net *net, const u8 protocol,
+nf_tproxy_get_sock_v4(struct net *net, struct sk_buff *skb, void *hp,
+		      const u8 protocol,
 		      const __be32 saddr, const __be32 daddr,
 		      const __be16 sport, const __be16 dport,
 		      const struct net_device *in,
 		      const enum nf_tproxy_lookup_t lookup_type)
 {
 	struct sock *sk;
+	struct tcphdr *tcph;
 
 	switch (protocol) {
 	case IPPROTO_TCP:
 		switch (lookup_type) {
 		case NFT_LOOKUP_LISTENER:
-			sk = inet_lookup_listener(net, &tcp_hashinfo,
+			tcph = hp;
+			sk = inet_lookup_listener(net, &tcp_hashinfo, skb,
+						    ip_hdrlen(skb) +
+						      __tcp_hdrlen(tcph),
 						    saddr, sport,
 						    daddr, dport,
-						    in->ifindex);
+						    in->ifindex, 0);
 
 			/* NOTE: we return listeners even if bound to
 			 * 0.0.0.0, those are filtered out in
@@ -169,22 +174,26 @@ nf_tproxy_get_sock_v4(struct net *net, const u8 protocol,
 
 #ifdef XT_TPROXY_HAVE_IPV6
 static inline struct sock *
-nf_tproxy_get_sock_v6(struct net *net, const u8 protocol,
+nf_tproxy_get_sock_v6(struct net *net, struct sk_buff *skb, int thoff, void *hp,
+		      const u8 protocol,
 		      const struct in6_addr *saddr, const struct in6_addr *daddr,
 		      const __be16 sport, const __be16 dport,
 		      const struct net_device *in,
 		      const enum nf_tproxy_lookup_t lookup_type)
 {
 	struct sock *sk;
+	struct tcphdr *tcph;
 
 	switch (protocol) {
 	case IPPROTO_TCP:
 		switch (lookup_type) {
 		case NFT_LOOKUP_LISTENER:
-			sk = inet6_lookup_listener(net, &tcp_hashinfo,
+			tcph = hp;
+			sk = inet6_lookup_listener(net, &tcp_hashinfo, skb,
+						   thoff + __tcp_hdrlen(tcph),
 						   saddr, sport,
 						   daddr, ntohs(dport),
-						   in->ifindex);
+						   in->ifindex, 0);
 
 			/* NOTE: we return listeners even if bound to
 			 * 0.0.0.0, those are filtered out in
@@ -195,7 +204,7 @@ nf_tproxy_get_sock_v6(struct net *net, const u8 protocol,
 		case NFT_LOOKUP_ESTABLISHED:
 			sk = __inet6_lookup_established(net, &tcp_hashinfo,
 							saddr, sport, daddr, ntohs(dport),
-							in->ifindex);
+							in->ifindex, 0);
 			break;
 		default:
 			BUG();
@@ -267,7 +276,7 @@ tproxy_handle_time_wait4(struct net *net, struct sk_buff *skb,
 		 * to a listener socket if there's one */
 		struct sock *sk2;
 
-		sk2 = nf_tproxy_get_sock_v4(net, iph->protocol,
+		sk2 = nf_tproxy_get_sock_v4(net, skb, hp, iph->protocol,
 					    iph->saddr, laddr ? laddr : iph->daddr,
 					    hp->source, lport ? lport : hp->dest,
 					    skb->dev, NFT_LOOKUP_LISTENER);
@@ -305,7 +314,7 @@ tproxy_tg4(struct net *net, struct sk_buff *skb, __be32 laddr, __be16 lport,
 	 * addresses, this happens if the redirect already happened
 	 * and the current packet belongs to an already established
 	 * connection */
-	sk = nf_tproxy_get_sock_v4(net, iph->protocol,
+	sk = nf_tproxy_get_sock_v4(net, skb, hp, iph->protocol,
 				   iph->saddr, iph->daddr,
 				   hp->source, hp->dest,
 				   skb->dev, NFT_LOOKUP_ESTABLISHED);
@@ -321,7 +330,7 @@ tproxy_tg4(struct net *net, struct sk_buff *skb, __be32 laddr, __be16 lport,
 	else if (!sk)
 		/* no, there's no established connection, check if
 		 * there's a listener on the redirected addr/port */
-		sk = nf_tproxy_get_sock_v4(net, iph->protocol,
+		sk = nf_tproxy_get_sock_v4(net, skb, hp, iph->protocol,
 					   iph->saddr, laddr,
 					   hp->source, lport,
 					   skb->dev, NFT_LOOKUP_LISTENER);
@@ -429,7 +438,7 @@ tproxy_handle_time_wait6(struct sk_buff *skb, int tproto, int thoff,
 		 * to a listener socket if there's one */
 		struct sock *sk2;
 
-		sk2 = nf_tproxy_get_sock_v6(par->net, tproto,
+		sk2 = nf_tproxy_get_sock_v6(par->net, skb, thoff, hp, tproto,
 					    &iph->saddr,
 					    tproxy_laddr6(skb, &tgi->laddr.in6, &iph->daddr),
 					    hp->source,
@@ -472,7 +481,7 @@ tproxy_tg6_v1(struct sk_buff *skb, const struct xt_action_param *par)
 	 * addresses, this happens if the redirect already happened
 	 * and the current packet belongs to an already established
 	 * connection */
-	sk = nf_tproxy_get_sock_v6(par->net, tproto,
+	sk = nf_tproxy_get_sock_v6(par->net, skb, thoff, hp, tproto,
 				   &iph->saddr, &iph->daddr,
 				   hp->source, hp->dest,
 				   par->in, NFT_LOOKUP_ESTABLISHED);
@@ -487,8 +496,8 @@ tproxy_tg6_v1(struct sk_buff *skb, const struct xt_action_param *par)
 	else if (!sk)
 		/* no there's no established connection, check if
 		 * there's a listener on the redirected addr/port */
-		sk = nf_tproxy_get_sock_v6(par->net, tproto,
-					   &iph->saddr, laddr,
+		sk = nf_tproxy_get_sock_v6(par->net, skb, thoff, hp,
+					   tproto, &iph->saddr, laddr,
 					   hp->source, lport,
 					   par->in, NFT_LOOKUP_LISTENER);
 
@@ -521,8 +530,7 @@ static int tproxy_tg6_check(const struct xt_tgchk_param *par)
 	    !(i->invflags & IP6T_INV_PROTO))
 		return 0;
 
-	pr_info("Can be used only in combination with "
-		"either -p tcp or -p udp\n");
+	pr_info_ratelimited("Can be used only with -p tcp or -p udp\n");
 	return -EINVAL;
 }
 #endif
@@ -535,8 +543,7 @@ static int tproxy_tg4_check(const struct xt_tgchk_param *par)
 	    && !(i->invflags & IPT_INV_PROTO))
 		return 0;
 
-	pr_info("Can be used only in combination with "
-		"either -p tcp or -p udp\n");
+	pr_info_ratelimited("Can be used only with -p tcp or -p udp\n");
 	return -EINVAL;
 }
 

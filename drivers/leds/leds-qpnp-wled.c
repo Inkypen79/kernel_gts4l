@@ -185,6 +185,7 @@
 #define QPNP_WLED_SINK_TEST5_DIG	0x1E
 #define QPNP_WLED_SINK_TEST5_HVG_PULL_STR_BIT	BIT(3)
 
+#define QPNP_WLED_SWITCH_FREQ_600_KHZ_CODE	0x0F
 #define QPNP_WLED_SWITCH_FREQ_800_KHZ_CODE	0x0B
 #define QPNP_WLED_SWITCH_FREQ_1600_KHZ_CODE	0x05
 
@@ -1517,7 +1518,7 @@ static irqreturn_t qpnp_wled_ovp_irq_handler(int irq, void *_wled)
 			QPNP_WLED_FAULT_STATUS(wled->ctrl_base), &fault_sts);
 	if (rc < 0) {
 		pr_err("Error in reading WLED_FAULT_STATUS rc=%d\n", rc);
-		return IRQ_HANDLED;
+		goto end;
 	}
 
 	if (fault_sts & (QPNP_WLED_OVP_FAULT_BIT | QPNP_WLED_ILIM_FAULT_BIT))
@@ -1551,6 +1552,9 @@ static irqreturn_t qpnp_wled_ovp_irq_handler(int irq, void *_wled)
 		}
 	}
 
+end:
+	disable_irq_nosync(wled->ovp_irq);
+	wled->ovp_irq_disabled = true;
 	return IRQ_HANDLED;
 }
 
@@ -1958,6 +1962,8 @@ static int qpnp_wled_config(struct qpnp_wled *wled)
 	/* Configure the SWITCHING FREQ register */
 	if (wled->switch_freq_khz == 1600)
 		reg = QPNP_WLED_SWITCH_FREQ_1600_KHZ_CODE;
+	else if (wled->switch_freq_khz == 600)
+		temp = QPNP_WLED_SWITCH_FREQ_600_KHZ_CODE;
 	else
 		reg = QPNP_WLED_SWITCH_FREQ_800_KHZ_CODE;
 

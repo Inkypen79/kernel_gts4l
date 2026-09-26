@@ -127,10 +127,12 @@ struct metadata_dst *iptunnel_metadata_reply(struct metadata_dst *md,
 	struct metadata_dst *res;
 	struct ip_tunnel_info *dst, *src;
 
-	if (!md || md->u.tun_info.mode & IP_TUNNEL_INFO_TX)
+	if (!md || md->type != METADATA_IP_TUNNEL ||
+	    md->u.tun_info.mode & IP_TUNNEL_INFO_TX)
+
 		return NULL;
 
-	res = metadata_dst_alloc(0, flags);
+	res = metadata_dst_alloc(0, METADATA_IP_TUNNEL, flags);
 	if (!res)
 		return NULL;
 
@@ -407,6 +409,12 @@ static const struct lwtunnel_encap_ops ip6_tun_lwt_ops = {
 
 void __init ip_tunnel_core_init(void)
 {
+	/* If you land here, make sure whether increasing ip_tunnel_info's
+	 * options_len is a reasonable choice with its usage in front ends
+	 * (f.e., it's part of flow keys, etc).
+	 */
+	BUILD_BUG_ON(IP_TUNNEL_OPTS_MAX != 255);
+
 	lwtunnel_encap_add_ops(&ip_tun_lwt_ops, LWTUNNEL_ENCAP_IP);
 	lwtunnel_encap_add_ops(&ip6_tun_lwt_ops, LWTUNNEL_ENCAP_IP6);
 }

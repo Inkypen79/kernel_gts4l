@@ -178,7 +178,8 @@ unlock:
 	return err ?: len;
 }
 
-static int hash_accept(struct socket *sock, struct socket *newsock, int flags)
+static int hash_accept(struct socket *sock, struct socket *newsock, int flags,
+		       bool kern)
 {
 	struct sock *sk = sock->sk;
 	struct alg_sock *ask = alg_sk(sk);
@@ -199,7 +200,7 @@ static int hash_accept(struct socket *sock, struct socket *newsock, int flags)
 	if (err)
 		return err;
 
-	err = af_alg_accept(ask->parent, newsock);
+	err = af_alg_accept(ask->parent, newsock, kern);
 	if (err)
 		return err;
 
@@ -212,10 +213,6 @@ static int hash_accept(struct socket *sock, struct socket *newsock, int flags)
 		return err;
 
 	err = crypto_ahash_import(&ctx2->req, state);
-	if (err) {
-		sock_orphan(sk2);
-		sock_put(sk2);
-	}
 
 	return err;
 }
@@ -252,7 +249,7 @@ static int hash_check_key(struct socket *sock)
 	struct alg_sock *ask = alg_sk(sk);
 
 	lock_sock(sk);
-	if (ask->refcnt)
+	if (!atomic_read(&ask->nokey_refcnt))
 		goto unlock_child;
 
 	psk = ask->parent;
@@ -264,11 +261,8 @@ static int hash_check_key(struct socket *sock)
 	if (!tfm->has_key)
 		goto unlock;
 
-	if (!pask->refcnt++)
-		sock_hold(psk);
-
-	ask->refcnt = 1;
-	sock_put(psk);
+	atomic_dec(&pask->nokey_refcnt);
+	atomic_set(&ask->nokey_refcnt, 0);
 
 	err = 0;
 
@@ -317,7 +311,7 @@ static int hash_recvmsg_nokey(struct socket *sock, struct msghdr *msg,
 }
 
 static int hash_accept_nokey(struct socket *sock, struct socket *newsock,
-			     int flags)
+			     int flags, bool kern)
 {
 	int err;
 
@@ -325,7 +319,7 @@ static int hash_accept_nokey(struct socket *sock, struct socket *newsock,
 	if (err)
 		return err;
 
-	return hash_accept(sock, newsock, flags);
+	return hash_accept(sock, newsock, flags, kern);
 }
 
 static struct proto_ops algif_hash_ops_nokey = {

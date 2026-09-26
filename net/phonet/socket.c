@@ -140,13 +140,15 @@ void pn_deliver_sock_broadcast(struct net *net, struct sk_buff *skb)
 	rcu_read_unlock();
 }
 
-void pn_sock_hash(struct sock *sk)
+int pn_sock_hash(struct sock *sk)
 {
 	struct hlist_head *hlist = pn_hash_list(pn_sk(sk)->sobject);
 
 	mutex_lock(&pnsocks.lock);
 	sk_add_node_rcu(sk, hlist);
 	mutex_unlock(&pnsocks.lock);
+
+	return 0;
 }
 EXPORT_SYMBOL(pn_sock_hash);
 
@@ -200,7 +202,7 @@ static int pn_socket_bind(struct socket *sock, struct sockaddr *addr, int len)
 	pn->resource = spn->spn_resource;
 
 	/* Enable RX on the socket */
-	sk->sk_prot->hash(sk);
+	err = sk->sk_prot->hash(sk);
 out_port:
 	mutex_unlock(&port_mutex);
 out:
@@ -301,7 +303,7 @@ out:
 }
 
 static int pn_socket_accept(struct socket *sock, struct socket *newsock,
-				int flags)
+			    int flags, bool kern)
 {
 	struct sock *sk = sock->sk;
 	struct sock *newsk;
@@ -310,7 +312,7 @@ static int pn_socket_accept(struct socket *sock, struct socket *newsock,
 	if (unlikely(sk->sk_state != TCP_LISTEN))
 		return -EINVAL;
 
-	newsk = sk->sk_prot->accept(sk, flags, &err);
+	newsk = sk->sk_prot->accept(sk, flags, &err, kern);
 	if (!newsk)
 		return err;
 

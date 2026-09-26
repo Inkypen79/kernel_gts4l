@@ -722,19 +722,6 @@ config BALANCE_ANON_FILE_RECLAIM
 	  Swapping anonymous pages out to memory can be efficient enough to justify
 	  treating anonymous and file backed pages equally.
 
-config KSWAPD_CPU_AFFINITY_MASK
-	string "kswapd cpu affinity mask"
-	depends on SMP
-	help
-	  Set the cpu affinity for the kswapd task.
-	  There can be power benefits on certain targets when limiting kswapd
-	  to run only on certain cores.
-	  The cpu affinity bitmask is represented by a hex string where commas
-	  group hex digits into chunks.  Each chunk defines exactly 32 bits of
-	  the resultant bitmask.
-	  For example to limit kswapd to the first 4 cores use the following:
-	  CONFIG_KSWAPD_CPU_AFFINITY_MASK="f"
-
 # For architectures that support deferred memory initialisation
 config ARCH_SUPPORTS_DEFERRED_STRUCT_PAGE_INIT
 	bool
@@ -826,3 +813,10 @@ config LARGE_DIRTY_BUFFER
 	help
 	  If unsure, say N to use kernel default value
 
+config VM_MAX_READAHEAD
+	int "default max readahead window size"
+	default 128
+	help
+	 This sets the VM_MAX_READAHEAD value to allow the readahead window
+	 to grow to a maximum size of configured. This will benefit sequential
+	 read throughput and thus early boot performance.

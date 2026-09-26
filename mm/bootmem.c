@@ -165,7 +165,7 @@ void free_bootmem_late(unsigned long physaddr, unsigned long size)
 
 	for (; cursor < end; cursor++) {
 		__free_pages_bootmem(pfn_to_page(cursor), cursor, 0);
-		totalram_pages++;
+		totalram_pages_inc();
 	}
 }
 
@@ -281,12 +281,12 @@ unsigned long __init free_all_bootmem(void)
 	list_for_each_entry(bdata, &bdata_list, list)
 		total_pages += free_all_bootmem_core(bdata);
 
-	totalram_pages += total_pages;
+	totalram_pages_add(total_pages);
 
 	return total_pages;
 }
 
-static void __init __free(bootmem_data_t *bdata,
+static void __init ___free(bootmem_data_t *bdata,
 			unsigned long sidx, unsigned long eidx)
 {
 	unsigned long idx;
@@ -324,7 +324,7 @@ static int __init __reserve(bootmem_data_t *bdata, unsigned long sidx,
 	for (idx = sidx; idx < eidx; idx++)
 		if (test_and_set_bit(idx, bdata->node_bootmem_map)) {
 			if (exclusive) {
-				__free(bdata, sidx, idx);
+				___free(bdata, sidx, idx);
 				return -EBUSY;
 			}
 			bdebug("silent double reserve of PFN %lx\n",
@@ -351,7 +351,7 @@ static int __init mark_bootmem_node(bootmem_data_t *bdata,
 	if (reserve)
 		return __reserve(bdata, sidx, eidx, flags);
 	else
-		__free(bdata, sidx, eidx);
+		___free(bdata, sidx, eidx);
 	return 0;
 }
 

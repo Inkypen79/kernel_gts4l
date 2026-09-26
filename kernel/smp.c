@@ -14,6 +14,7 @@
 #include <linux/smp.h>
 #include <linux/cpu.h>
 #include <linux/sched.h>
+#include <linux/suspend.h>
 
 #include "smpboot.h"
 
@@ -227,7 +228,7 @@ static void flush_smp_call_function_queue(bool warn_cpu_offline)
 
 	/* There shouldn't be any pending callbacks on an offline CPU. */
 	if (unlikely(warn_cpu_offline && !cpu_online(smp_processor_id()) &&
-		     !warned && !llist_empty(head))) {
+		     !warned && entry != NULL)) {
 		warned = true;
 		WARN(1, "IPI on offline CPU %d\n", smp_processor_id());
 
@@ -766,7 +767,8 @@ void wake_up_all_idle_cpus(void)
 	for_each_online_cpu(cpu) {
 		if (cpu == smp_processor_id())
 			continue;
-		if (!cpu_isolated(cpu))
+		if (suspend_freeze_state == FREEZE_STATE_ENTER ||
+		    !cpu_isolated(cpu))
 			wake_up_if_idle(cpu);
 	}
 	preempt_enable();

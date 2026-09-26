@@ -291,7 +291,12 @@ TRACE_MAKE_SYSTEM_STR();
 #endif
 
 #undef __print_hex
-#define __print_hex(buf, buf_len) trace_print_hex_seq(p, buf, buf_len)
+#define __print_hex(buf, buf_len)					\
+	trace_print_hex_seq(p, buf, buf_len, true)
+
+#undef __print_hex_str
+#define __print_hex_str(buf, buf_len)					\
+	trace_print_hex_seq(p, buf, buf_len, false)
 
 #undef __print_array
 #define __print_array(array, count, el_size)				\
@@ -646,9 +651,6 @@ static inline notrace int trace_event_get_offsets_##call(		\
 #undef TP_fast_assign
 #define TP_fast_assign(args...) args
 
-#undef __perf_addr
-#define __perf_addr(a)	(a)
-
 #undef __perf_count
 #define __perf_count(c)	(c)
 
@@ -709,6 +711,7 @@ static inline void ftrace_test_probe_##call(void)			\
 #undef __print_flags
 #undef __print_symbolic
 #undef __print_hex
+#undef __print_hex_str
 #undef __get_dynamic_array
 #undef __get_dynamic_array_len
 #undef __get_str

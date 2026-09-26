@@ -1841,9 +1841,6 @@ extern int min_free_kbytes;
 /* vmscan.c */
 extern unsigned long reclaim_contig_migrate_range(unsigned long start,
 					 unsigned long end, bool drain);
-/* ion_rbin_heap.c */
-void wake_ion_rbin_heap_prereclaim(void);
-void wake_ion_rbin_heap_shrink(void);
 
 /* nommu.c */
 extern atomic_long_t mmap_pages_allocated;

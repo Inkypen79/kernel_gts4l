@@ -284,7 +284,7 @@ static int ion_secure_cma_allocate(struct ion_heap *heap,
 	if (dest_vm == VMID_CP_SEC_DISPLAY)
 		dest_perms = PERM_READ;
 	else
-	dest_perms = PERM_READ | PERM_WRITE;
+		dest_perms = PERM_READ | PERM_WRITE;
 
 	ret = ion_cma_allocate(heap, buffer, len, align, flags);
 	if (ret) {

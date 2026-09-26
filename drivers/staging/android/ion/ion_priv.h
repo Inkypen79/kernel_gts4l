@@ -374,11 +374,6 @@ void ion_system_heap_destroy(struct ion_heap *);
 struct ion_heap *ion_system_contig_heap_create(struct ion_platform_heap *);
 void ion_system_contig_heap_destroy(struct ion_heap *);
 
-#ifdef CONFIG_ION_RBIN_HEAP
-struct ion_heap *ion_rbin_heap_create(struct ion_platform_heap *);
-void ion_rbin_heap_destroy(struct ion_heap *);
-#endif
-
 struct ion_heap *ion_carveout_heap_create(struct ion_platform_heap *);
 void ion_carveout_heap_destroy(struct ion_heap *);
 

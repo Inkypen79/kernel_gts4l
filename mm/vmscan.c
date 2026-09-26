@@ -2187,22 +2187,7 @@ enum rbin_alloc_policy {
 	RBIN_DENY = 1,
 };
 
-#ifdef CONFIG_RBIN
-static void set_rbin_alloc_policy(enum rbin_alloc_policy val)
-{
-	struct zone *zone;
-
-	if (val == RBIN_ALLOW)
-		wake_ion_rbin_heap_shrink();
-	for_each_populated_zone(zone) {
-		atomic_set(&zone->rbin_alloc, val);
-		if (val)
-			wakeup_kswapd(zone, 0, gfp_zone(GFP_KERNEL));
-	}
-}
-#else
 static void set_rbin_alloc_policy(enum rbin_alloc_policy val) {}
-#endif
 
 void test_and_set_mem_boost_timeout(void)
 {
@@ -2235,9 +2220,6 @@ static ssize_t mem_boost_mode_store(struct kobject *kobj,
 	trace_printk("memboost start\n");
 	last_mode_change = jiffies;
 	if (mem_boost_mode == BOOST_HIGH) {
-#ifdef CONFIG_ION_RBIN_HEAP
-		wake_ion_rbin_heap_prereclaim();
-#endif
 		set_rbin_alloc_policy(RBIN_DENY);
 	}
 
